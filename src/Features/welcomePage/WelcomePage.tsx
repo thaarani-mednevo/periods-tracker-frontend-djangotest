@@ -155,7 +155,7 @@ function HeroPortrait() {
 function HeroVisual() {
   return (
     <div
-      className="relative aspect-[640/460] w-full max-w-[620px]"
+      className="relative aspect-[640/460] w-full max-w-[620px] lg:max-w-[min(720px,calc((100svh_-_400px)_*_1.39))]"
       role="img"
       aria-label="Cycle tracking preview: period tracking, symptom logging, pattern insights and a monthly cycle calendar"
     >
@@ -197,23 +197,23 @@ export function WelcomePage({ onGetStarted, progress, onResume, onStartOver }: W
       headerRight={null}
       background="plain"
       mode="page"
-      containerClassName="max-w-[1160px] mx-auto px-6 sm:px-8"
+      containerClassName="max-w-[1800px] mx-auto px-6 sm:px-8 lg:px-10"
     >
       {/* Hero Section */}
       <section
         aria-labelledby="welcome-title"
-        className="grid items-center gap-8 pt-4 pb-8 sm:pt-6 sm:pb-12 md:grid-cols-[minmax(0,48fr)_minmax(0,52fr)] md:gap-8 lg:gap-12"
+        className="grid items-center gap-8 pt-4 pb-8 sm:pt-6 sm:pb-12 md:grid-cols-[minmax(0,48fr)_minmax(0,52fr)] md:gap-8 lg:gap-12 lg:pt-0 lg:pb-0"
       >
         <div className="animate-fade-up">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#E85B91]">Your cycle, your way</p>
+          <p className="text-[14px] font-semibold uppercase tracking-[0.18em] text-[#E85B91]">Your cycle, your way</p>
           <h1
             id="welcome-title"
-            className="mt-3 text-[36px] sm:text-[42px] lg:text-[48px] xl:text-[52px] font-bold leading-[1.12] tracking-[-0.03em] text-[#292127]"
+            className="mt-3 text-[30px] sm:text-[36px] lg:text-[44px] xl:text-[50px] font-bold leading-[1.12] tracking-[-0.03em] text-[#292127]"
           >
             <span className="block">Welcome to Your</span>
             <span className="block text-[#F45A9B]">Cycle Tracker</span>
           </h1>
-          <p className="mt-4 max-w-[420px] text-[15px] sm:text-base leading-relaxed text-[#756970]">
+          <p className="mt-3 max-w-[400px] text-[14px] leading-relaxed text-[#756970]">
             Understand your cycle, track what matters to you, and get personalized insights along the way.
           </p>
 
@@ -256,13 +256,13 @@ export function WelcomePage({ onGetStarted, progress, onResume, onStartOver }: W
                 <button
                   type="button"
                   onClick={onGetStarted}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#F45A9B] to-[#F672AB] px-7 py-3.5 text-[15px] font-semibold text-white shadow-[0_4px_16px_rgba(244,90,155,0.28)] transition-all duration-200 hover:brightness-105 hover:shadow-[0_6px_20px_rgba(244,90,155,0.35)] focus-ring w-full min-[420px]:w-auto"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#F45A9B] to-[#F672AB] px-8 py-4 text-[17px] font-semibold text-white shadow-[0_4px_16px_rgba(244,90,155,0.28)] transition-all duration-200 hover:brightness-105 hover:shadow-[0_6px_20px_rgba(244,90,155,0.35)] focus-ring w-full min-[420px]:w-auto"
                 >
                   Get Started
                   <ArrowRight className="size-[18px]" aria-hidden="true" />
                 </button>
               </div>
-              <p className="mt-4 flex items-center gap-2 text-[13px] text-[#756970]">
+              <p className="mt-4 flex items-center gap-2 text-[15px] text-[#756970]">
                 <Check className="size-4 text-[#34A853]" strokeWidth={2.6} aria-hidden="true" />
                 You can change your preferences anytime.
               </p>
@@ -276,23 +276,23 @@ export function WelcomePage({ onGetStarted, progress, onResume, onStartOver }: W
       </section>
 
       {/* Second Section: Features */}
-      <section aria-labelledby="features-title" className="pt-4 pb-14 sm:pb-16 lg:pb-20">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#E85B91]">Made for your wellbeing</p>
-        <h2 id="features-title" className="mt-2 text-2xl sm:text-[26px] font-bold tracking-tight text-[#292127]">
+      <section aria-labelledby="features-title" className="pt-0 pb-14 sm:pb-16 lg:mt-4 lg:pb-4">
+        <p className="text-[14px] font-semibold uppercase tracking-[0.18em] text-[#E85B91]">Made for your wellbeing</p>
+        <h2 id="features-title" className="mt-1 text-[26px] sm:text-[28px] font-bold tracking-tight text-[#292127]">
           Make tracking work for you
         </h2>
-        <p className="mt-1 text-[14px] text-[#756970]">Choose what matters to you and personalize your experience.</p>
-        <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <p className="mt-1 text-[15px] text-[#756970]">Choose what matters to you and personalize your experience.</p>
+        <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f) => (
             <li
               key={f.title}
-              className="rounded-2xl border border-[#F4E4EA] bg-white p-5 shadow-[0_2px_10px_rgba(40,20,30,0.03)] transition-all duration-200 ease-out hover:border-[#F2BBD0] hover:shadow-[0_4px_16px_rgba(40,20,30,0.06)]"
+              className="rounded-2xl border border-[#F4E4EA] bg-white p-4 shadow-[0_2px_10px_rgba(40,20,30,0.03)] transition-all duration-200 ease-out hover:border-[#F2BBD0] hover:shadow-[0_4px_16px_rgba(40,20,30,0.06)]"
             >
               <span className={cn("grid size-10 place-items-center rounded-xl", TONES[f.tone])} aria-hidden="true">
                 <f.icon className="size-5" strokeWidth={2} />
               </span>
-              <h3 className="mt-4 text-[15px] font-semibold text-[#292127]">{f.title}</h3>
-              <p className="mt-1.5 text-[13px] leading-relaxed text-[#85737B]">{f.text}</p>
+              <h3 className="mt-3 text-[18px] font-semibold text-[#292127]">{f.title}</h3>
+              <p className="mt-1.5 text-[15px] leading-relaxed text-[#85737B]">{f.text}</p>
             </li>
           ))}
         </ul>

@@ -13,7 +13,7 @@ const joinParts = (parts: string[]) =>
 
 function Chip({ icon, label, value, muted }: { icon: ReactNode; label: string; value: string; muted?: boolean }) {
   return (
-    <div className="flex w-full min-w-0 items-center gap-3 rounded-full bg-white py-2 pl-2 pr-5 shadow-[0px_4px_14px_-4px_rgba(236,72,153,0.25)] md:w-auto">
+    <div className="flex w-full min-w-0 items-center gap-3 rounded-full bg-white py-2.5 pl-2.5 pr-5 shadow-[0px_4px_14px_-4px_rgba(236,72,153,0.25)] xl:w-auto">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#FDF2F8] text-[#EC4899]" aria-hidden="true">
         {icon}
       </span>
@@ -27,9 +27,9 @@ function Chip({ icon, label, value, muted }: { icon: ReactNode; label: string; v
 
 function Join({ label, icon }: { label: string; icon?: ReactNode }) {
   return (
-    <div className="flex shrink-0 items-center gap-1.5 text-lu-ink-muted md:flex-col" aria-hidden="true">
+    <div className="flex shrink-0 items-center justify-center gap-1.5 text-lu-ink-muted xl:flex-col" aria-hidden="true">
       <span className="flex size-5 items-center justify-center rounded-full bg-[#FDF2F8] text-[#EC4899]">
-        {icon ?? <ArrowRight className="size-[11px] rotate-90 md:rotate-0" />}
+        {icon ?? <ArrowRight className="size-[11px] rotate-90 xl:rotate-0" />}
       </span>
       <span className="whitespace-nowrap text-[9px] font-medium uppercase tracking-[0.14em]">{label}</span>
     </div>
@@ -134,7 +134,7 @@ export function FertilityInsightCard({
         {chips.length > 0 && (
           <div className="mt-5 rounded-[20px] border-2 border-[#FCE7F1] px-[clamp(0.75rem,1.6vw,1.25rem)] pb-5 pt-4">
             <span className="block text-[10px] font-medium uppercase tracking-[0.16em] text-lu-ink-soft">Biomarker correlation</span>
-            <div className="mt-4 flex flex-col items-center justify-between gap-3 md:flex-row md:flex-wrap">
+            <div className="mt-4 flex flex-col items-stretch gap-3 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
               {chips.map((c, i) => (
                 <Fragment key={c.key}>
                   {i > 0 && <Join label="Observed with" />}
@@ -144,7 +144,7 @@ export function FertilityInsightCard({
               {chance && (
                 <>
                   <Join label="Correlates to" icon={<Equal className="size-[11px]" />} />
-                  <div className="flex w-full items-center gap-3 rounded-full bg-gradient-to-r from-[#EC4899] to-[#F07BC0] py-2 pl-2 pr-6 text-white shadow-[0px_6px_18px_-4px_rgba(236,72,153,0.45)] md:w-auto">
+                  <div className="flex w-full items-center gap-3 rounded-full bg-gradient-to-r from-[#EC4899] to-[#F07BC0] py-2.5 pl-2.5 pr-6 text-white shadow-[0px_6px_18px_-4px_rgba(236,72,153,0.45)] xl:w-auto">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/30" aria-hidden="true">
                       <Heart size={16} className="fill-white" />
                     </span>

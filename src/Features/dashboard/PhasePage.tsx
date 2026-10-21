@@ -3,7 +3,7 @@ import { useState } from "react";
 import { InfoCard } from "../../Elements/infoCard/InfoCard";
 import { secondaryBtn } from "../../Elements/navigationButtons/NavigationButtons";
 import { useCycle } from "../../hooks/useCycle";
-import { PHASE_VIEWS } from "../phases/registry";
+import { PHASE_VIEWS, usePhaseScale } from "../phases/registry";
 import { fmtDate, PHASES, type PhaseId } from "./phases";
 
 interface PhasePageProps {
@@ -19,6 +19,7 @@ export function PhasePage({ initial, onBack, onLogPeriod, onOpenTrends }: PhaseP
    // No explicit pick yet: open on whichever phase the engine says she is in right now.
   const [picked, setPicked] = useState<PhaseId | null>(initial ?? null);
   const selected: PhaseId = picked ?? (state && state.phase !== "unknown" ? state.phase : "menstrual");
+  usePhaseScale(PHASE_VIEWS[selected] ? selected : undefined);
 
   const meta = PHASES.find((p) => p.id === selected)!;
   const row = state?.phases.find((p) => p.phase === selected);

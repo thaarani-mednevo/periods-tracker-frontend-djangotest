@@ -2,9 +2,9 @@ import { Activity, Apple, Brain, Dumbbell, Droplets, Heart, Moon, Sprout, type L
 
 /** Static educational copy for the follicular phase. Nothing personal lives here; all dates come from the backend. */
 export const FOLLICULAR_COPY = {
-  heading: "You're likely in your follicular phase",
+  heading: "You're in your follicular phase",
   description:
-    "Your body is preparing for ovulation. Estrogen is rising, so many people notice more energy and a brighter mood. A good time to build healthy habits.",
+    "Your body is preparing for ovulation. Estrogen levels are rising, and you may notice more energy and a brighter mood. This is a great time to focus on healthy habits!",
 };
 
 export const HORMONE = {
@@ -26,3 +26,12 @@ export const WELLNESS: { icon: LucideIcon; title: string; items: string[] }[] = 
   { icon: Activity, title: "Exercise suggestions", items: ["Try strength training", "Cardio or brisk walking", "Group classes or new activities", "Listen to your body"] },
   { icon: Heart, title: "General wellness", items: ["Keep a regular sleep routine", "Plan social time and new goals", "Manage stress with relaxation", "Take time for self-care"] },
 ];
+
+/** Card titles and screen-reader names for the four metric cards under the status card. */
+export const METRIC_CARDS = {
+  bbt: { title: "Basal body temp", label: "Basal body temperature" },
+  mucus: { title: "Cervical mucus", label: "Cervical mucus" },
+  lh: { title: "LH Ovulation Test", label: "LH ovulation test" },
+  libido: { title: "Libido", label: "Libido" },
+} as const;
+export const metricCardAria = (label: string) => `${label}. Open Daily Log to update`;

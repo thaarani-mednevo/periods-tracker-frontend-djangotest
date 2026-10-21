@@ -1187,7 +1187,7 @@ export function StepScene({ step, data }: { step: StepId; data: OnboardingData }
         <MedicalScene
           conditions={data.medicalConditions}
           other={data.medicalConditions.includes("Other") ? data.otherMedicalCondition : ""}
-          meds={data.takingMedication === null ? null : data.takingMedication ? data.medications.filter((m) => m.trim()).length || 1 : 0}
+          meds={data.takingMedication === null ? null : data.takingMedication ? data.medications.filter((m) => m.name.trim()).length || 1 : 0}
         />
       );
     case 7:

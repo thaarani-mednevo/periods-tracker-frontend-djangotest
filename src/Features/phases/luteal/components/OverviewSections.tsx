@@ -1,9 +1,14 @@
-import { Activity, ArrowRight, CalendarDays, Pill, Sparkles } from "lucide-react";
+import { useCallback, type KeyboardEvent } from "react";
+import { Activity, CalendarDays, ChevronRight, Pill, Sparkles } from "lucide-react";
 import illustration from "../../../../assets/phases/luteal-illustration.png";
 import { fmtDate } from "../../../dashboard/phases";
-import type { IntakeRecord } from "../../../../services/logs";
+import { getMedicationHistory, getMedications } from "../../../../services/logs";
+import { CardWave } from "../../../../Elements/CardWave/CardWave";
+import { useAsync } from "../../../../hooks/useAsync";
+import { localISODate } from "../../../../services/cycle";
 import type { PhaseInsight } from "../../../../services/insights";
 import { ProgressRing } from "../../ProgressRing";
+import { MED_ORDER, MED_SEG, MedicationRing, type MedSegKey } from "../../shared/ui/MedicationRing";
 import { AvaAvatar } from "../../shared/ui/AvaAvatar";
 import { Emoji } from "../../shared/ui/Emoji";
 import { LUTEAL_COPY } from "../lutealContent";
@@ -102,53 +107,99 @@ export function AIRecommendation({ insight, loading, onAskAva }: { insight: Phas
   );
 }
 
-function PillBubble() {
-  return (
-    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lu-brand-soft text-lu-brand-strong">
-      <Pill className="size-[18px]" aria-hidden="true" />
-    </span>
-  );
-}
+const MED_CARD =
+  "group relative isolate flex min-h-[clamp(120px,8.5vw,148px)] w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-lu-card border border-lu-brand-line bg-gradient-to-br from-white via-white to-[#F6F0FF] p-lu-card text-left shadow-lu-card transition-all hover:border-pink-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300";
 
-/** Real logged intakes only. */
-export function MedicationHistory({ entries, onViewAll }: { entries: IntakeRecord[]; onViewAll: () => void }) {
+// Menstrual overview: same shell as the other menstrual metric cards (plain white card, soft shadow, no extra ring).
+const MED_HALO =
+  "group relative isolate flex h-full min-h-[clamp(130px,9.5vw,160px)] w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-[24px] border border-[#F3E8F2] bg-gradient-to-br from-white via-white to-[#F8F3FF] p-4 text-left shadow-[0_6px_22px_rgba(236,72,153,0.06)] transition-all duration-200 hover:border-pink-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 sm:p-5";
+
+/** "Medication" log card for ONE day: "3 out of 5" doses taken + status ring. Click opens the Daily Log. */
+export function MedicationScoreCard({ day, onOpen, className = "", halo = false }: { day: string; onOpen: () => void; className?: string; halo?: boolean }) {
+  const load = useCallback((s: AbortSignal) => getMedicationHistory(day, day, s), [day]);
+  const meds = useAsync(load);
+  const loadList = useCallback((s: AbortSignal) => getMedications(day, s), [day]);
+  const list = useAsync(loadList);
+
+  const intakes = (meds.data?.intakes ?? []).filter((m) => m.date.slice(0, 10) === day);
+  const medList = list.data?.medications ?? [];
+
+  // Doses taken late count as Taken. Upcoming = not due or not logged yet.
+  const counts: Record<MedSegKey, number> = {
+    taken: intakes.filter((m) => m.status === "taken").length,
+    skipped: intakes.filter((m) => m.status === "skipped").length,
+    upcoming: intakes.filter((m) => m.status === "pending").length,
+  };
+  const total = intakes.length || medList.length;
+  const done = counts.taken;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const legend = MED_ORDER.filter((k) => counts[k] > 0);
+
+  const loading = (meds.status === "loading" && !meds.data) || (list.status === "loading" && !list.data);
+  const failed = meds.status === "error" && !meds.data;
+  const empty = !loading && !failed && total === 0;
+  const dayLabel = day === localISODate() ? "today" : fmtDate(day);
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onOpen();
+    }
+  };
+
   return (
-    <section className="rounded-lu-card border border-lu-brand-line bg-white p-lu-card shadow-lu-card">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <PillBubble />
-          <div>
-            <h2 className="text-lu-body font-semibold text-lu-ink">Medication History</h2>
-            <p className="text-lu-label text-lu-ink-muted">Medications you&apos;ve logged throughout your cycle</p>
-          </div>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={onKeyDown}
+      aria-label="Medication. Open Daily Log to update"
+      className={`${halo ? MED_HALO : MED_CARD} ${className}`}
+    >
+      <CardWave behind />
+      <svg aria-hidden="true" viewBox="0 0 400 120" preserveAspectRatio="none" className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[45%] w-full">
+        <path d="M0 70 C80 30 160 40 240 70 S360 90 400 40 V120 H0Z" fill="#EEE6FB" fillOpacity="0.7" />
+        <path d="M0 95 C100 60 200 110 300 85 S380 70 400 80 V120 H0Z" fill="#F8DDF0" fillOpacity="0.6" />
+      </svg>
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#F4ECFF] text-[#8B5CF6]">
+          <Pill className="size-3.5" strokeWidth={2.3} aria-hidden="true" />
         </div>
-        <button type="button" onClick={onViewAll} className="-my-1 inline-flex items-center gap-2 py-1 text-lu-body font-medium text-lu-brand-strong hover:underline">
-          View All History
-          <ArrowRight className="size-4" aria-hidden="true" />
-        </button>
-      </header>
-      {entries.length === 0 ? (
-        <p className="mt-5 text-lu-label text-lu-ink-muted">No medications logged yet. Mark a medication as taken in your Daily Log and it will appear here.</p>
-      ) : (
-        <ul className="mt-5 grid grid-cols-1 gap-lu-grid min-[560px]:grid-cols-2 xl:grid-cols-4">
-          {entries.map((m, i) => (
-            <li key={`${m.date}-${m.name}-${i}`} className="rounded-[clamp(14px,1.2vw,20px)] border border-lu-brand-line bg-[#FFFAFC] p-[clamp(14px,1.2vw,20px)]">
-              <div className="flex items-center gap-3">
-                <PillBubble />
-                <div className="min-w-0">
-                  <p className="truncate text-lu-label font-semibold text-lu-ink">{m.name}</p>
-                  <p className="truncate text-lu-caption text-lu-ink-muted">{m.dose || "—"}</p>
-                </div>
-              </div>
-              <div className="mt-4 flex items-end justify-between gap-2 text-lu-caption text-lu-ink-muted">
-                <p>{fmtDate(m.date)}</p>
-                <span className="font-semibold capitalize text-lu-ink">{m.status}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+        <span className="truncate text-lu-label font-semibold text-lu-ink">Medication</span>
+      </div>
+
+      <div className="z-10 mt-1 flex flex-1 items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-col self-stretch">
+          <span className="text-lu-caption text-lu-ink-muted">Taken {dayLabel}</span>
+          {failed ? (
+            <span className="mt-2 text-lu-label text-lu-ink-muted">Couldn&apos;t load medications</span>
+          ) : empty ? (
+            <span className="mt-1 text-lu-label font-semibold text-lu-ink">No medications scheduled</span>
+          ) : (
+            <span className="mt-1 text-[clamp(1rem,1.2vw,1.2rem)] font-bold leading-tight text-lu-ink">
+              {loading ? "—" : done}
+              {!loading && <span className="ml-1.5 text-lu-body font-semibold text-lu-ink-muted">out of {total}</span>}
+            </span>
+          )}
+          {!loading && !failed && legend.length > 0 && (
+            <ul className="mb-2 mt-1.5 flex flex-wrap gap-1.5" aria-label="Dose breakdown">
+              {legend.map((k) => (
+                <li key={k} className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 text-lu-caption text-lu-ink-muted shadow-[0_2px_8px_-4px_rgba(139,92,246,0.35)]">
+                  <span className="size-2 rounded-full" style={{ backgroundColor: MED_SEG[k].color }} aria-hidden="true" />
+                  <span className="font-semibold text-lu-ink">{counts[k]}</span> {MED_SEG[k].label}
+                </li>
+              ))}
+            </ul>
+          )}
+          <span className="mt-auto inline-flex w-fit items-center gap-1 rounded-full bg-[#F3E8FF]/80 px-3 py-1 text-lu-caption font-semibold text-[#9333EA]">
+            View / Edit Log <ChevronRight className="size-3.5" aria-hidden="true" />
+          </span>
+        </div>
+
+        <MedicationRing counts={counts} total={total} pct={pct} muted={loading || failed} />
+      </div>
+    </div>
   );
 }
 

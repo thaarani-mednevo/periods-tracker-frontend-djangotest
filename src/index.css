@@ -420,6 +420,14 @@
 /* Base                                                                */
 /* ------------------------------------------------------------------ */
 @layer base {
+  /* Tailwind v3 default border color; the deployed phase UIs were built on v3. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
   html {
     -webkit-tap-highlight-color: transparent;
   }
@@ -444,7 +452,6 @@
   }
   body {
     @apply bg-canvas font-sans text-ink antialiased;
-    font-feature-settings: "cv11", "ss01";
   }
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {

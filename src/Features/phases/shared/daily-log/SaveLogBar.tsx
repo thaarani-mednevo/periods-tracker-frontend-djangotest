@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react';
 import { Check } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { formatDate } from '../../../../lib/dailyLogDate';
 
 interface SaveLogBarProps {
@@ -11,7 +13,26 @@ interface SaveLogBarProps {
   onSave: () => void;
 }
 
+const CONFETTI_COLORS = ['#F43F8F', '#8B5CF6', '#F59E0B', '#3B82F6', '#10B981', '#FB7185'];
+
+/** Pink/purple confetti blast after a Daily Log save. Skipped when the user prefers reduced motion. */
+function celebrate() {
+  const base = { colors: CONFETTI_COLORS, disableForReducedMotion: true, zIndex: 9999, ticks: 240, gravity: 0.9 };
+  confetti({ ...base, particleCount: 120, spread: 160, startVelocity: 38, origin: { x: 0.5, y: 0.15 } });
+  window.setTimeout(() => {
+    confetti({ ...base, particleCount: 60, angle: 60, spread: 65, startVelocity: 50, origin: { x: 0, y: 0.65 } });
+    confetti({ ...base, particleCount: 60, angle: 120, spread: 65, startVelocity: 50, origin: { x: 1, y: 0.65 } });
+  }, 200);
+}
+
 export function SaveLogBar({ date, status, error, noChanges, onSave }: SaveLogBarProps) {
+  // Fire only when the status *changes* to 'saved', not on every render or when the page opens
+  const prevStatus = useRef(status);
+  useEffect(() => {
+    if (prevStatus.current !== status && status === 'saved') celebrate();
+    prevStatus.current = status;
+  }, [status]);
+
   const day = formatDate(date, { month: 'long', day: 'numeric' });
   const message = noChanges
     ? `No changes to save for ${day}.`

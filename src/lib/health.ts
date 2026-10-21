@@ -1,5 +1,5 @@
 import { GOAL_TRACKING, TRACKING_LABELS, HEIGHT_RANGE, WEIGHT_RANGE } from "../constants";
-import type { FeedbackTone, FertilityGoal, OnboardingData, TrackingKey } from "../types";
+import type { FeedbackTone, FertilityGoal, MedicationEntry, OnboardingData, TrackingKey } from "../types";
 
 export interface Feedback {
   tone: FeedbackTone;
@@ -189,4 +189,32 @@ export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "";
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+}
+
+/** Total days of a medication course (start -> end, both included). undefined = ongoing. */
+export function medicationDays(m: MedicationEntry): number | undefined {
+  const end = parseISODate(m.endDate);
+  const start = parseISODate(m.startDate || todayISO());
+  if (!end || !start) return undefined;
+  return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1);
+}
+
+/** Last day of a course that starts on `startDate` (empty = today) and runs `days` days. */
+export function medicationEndDate(startDate: string, days: number): string {
+  const start = parseISODate(startDate || todayISO());
+  return start ? toISODate(new Date(start.getTime() + (days - 1) * 86_400_000)) : "";
+}
+
+/** "Iron · 65 mg · Twice daily · 08:00, 20:00 · 7 days" — one line for the Review pages. */
+export function medicationLabel(m: MedicationEntry): string {
+  const days = medicationDays(m);
+  return [
+    m.name.trim(),
+    /\d/.test(m.dose) ? m.dose.trim() : "",
+    m.frequency,
+    m.times.filter(Boolean).join(", "),
+    days ? pluralDays(days) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }

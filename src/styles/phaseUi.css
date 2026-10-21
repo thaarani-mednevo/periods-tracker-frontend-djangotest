@@ -12,10 +12,16 @@
 
   --text-lu-display: clamp(1.75rem, 1.3rem + 1.15vw, 2.5rem);
   --text-lu-display--line-height: 1.1;
+  --text-lu-display--letter-spacing: -0.02em;
   --text-lu-title: clamp(1.125rem, 1rem + 0.45vw, 1.5rem);
   --text-lu-title--line-height: 1.2;
+  --text-lu-title--letter-spacing: -0.015em;
+   --text-lu-metric: clamp(1.125rem, 1rem + 0.35vw, 1.375rem);
+  --text-lu-metric--line-height: 1.15;
+  --text-lu-metric--letter-spacing: -0.02em;
   --text-lu-heading: clamp(0.9375rem, 0.88rem + 0.2vw, 1.0625rem);
   --text-lu-heading--line-height: 1.3;
+  --text-lu-heading--letter-spacing: -0.01em;
   --text-lu-body: clamp(0.875rem, 0.85rem + 0.12vw, 0.9375rem);
   --text-lu-body--line-height: 1.55;
   --text-lu-label: clamp(0.8125rem, 0.8rem + 0.06vw, 0.875rem);
@@ -56,4 +62,10 @@
 }
 .lu-no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Phase pages inherit the luteal base type size (14–15px, 1.55) instead of the browser's 16px */
+html[data-phase] body {
+  font-size: var(--text-lu-body);
+  line-height: var(--text-lu-body--line-height);
 }

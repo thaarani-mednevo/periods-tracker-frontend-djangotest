@@ -1,6 +1,7 @@
 import { Lock } from "lucide-react";
 import { cn } from "../../lib/cn";
 import type { ReactNode } from "react";
+import brandLogo from "../../assets/logo/periods logo.png";
 
 /** Ambient background: predominantly white with barely-visible pink glows, rings and sparkles. */
 function AmbientBackground() {
@@ -27,19 +28,20 @@ function AmbientBackground() {
   );
 }
 
+/**
+ * Brand logo from assets/logo. The PNG is a 500x500 canvas with the artwork in the middle, so the wrapper
+ * crops to the artwork (x 48-396, y 195-305) and the logo fills the header height instead of looking tiny.
+ */
 export function BrandMark() {
   return (
-    <div className="flex min-w-0 items-center gap-2.5">
-      <span className="relative grid size-9 shrink-0 place-items-center rounded-[11px] bg-brand shadow-glow" aria-hidden="true">
-        <span className="size-[15px] rounded-full border-[2.5px] border-white border-r-transparent" />
-        <span className="absolute right-[9px] top-[9px] size-1.5 rounded-full bg-white" />
-      </span>
-      <span className="min-w-0 leading-none">
-        <span className="block text-heading font-bold tracking-[0.18em] text-ink">MEDNEVO</span>
-        <span className="mt-1 block truncate text-eyebrow font-semibold uppercase tracking-[0.16em] text-rose-ink">
-          Personal wellness<span className="hidden sm:inline"> • Cycle tracker</span>
-        </span>
-      </span>
+    <div className="relative h-10 w-[127px] shrink-0 overflow-hidden sm:h-12 sm:w-[152px]">
+      <img
+        src={brandLogo}
+        alt="Mednevo Cycle Tracker"
+        draggable={false}
+        className="absolute max-w-none select-none"
+        style={{ width: "143.678%", left: "-13.793%", top: "-177.273%" }}
+      />
     </div>
   );
 }

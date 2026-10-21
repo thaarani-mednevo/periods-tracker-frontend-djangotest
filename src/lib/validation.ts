@@ -5,11 +5,22 @@ import {
   HEIGHT_RANGE,
   WEIGHT_RANGE,
 } from "../constants";
-import type { OnboardingData, StepErrors, StepId } from "../types";
+import { baseFrequency, dosesPerDay } from "../Features/phases/shared/daily-log/constants";
+import type { MedicationEntry, OnboardingData, StepErrors, StepId } from "../types";
 import { parseISODate } from "./health";
 
 function inRange(v: number | undefined, min: number, max: number): boolean {
   return v !== undefined && Number.isFinite(v) && v >= min && v <= max;
+}
+
+/** First problem in one filled-in medication, or undefined when it is complete. */
+export function medicationProblem(m: MedicationEntry): string | undefined {
+  if (!/\d/.test(m.dose)) return "Enter the dose, e.g. 500.";
+  const n = dosesPerDay(baseFrequency(m.frequency));
+  const times = Array.from({ length: n }, (_, i) => m.times[i] ?? "");
+  if (times.some((t) => !t)) return n > 1 ? "Choose a time for every dose." : "Choose the time you take it.";
+  if (new Set(times).size !== n) return "Dose times must be different.";
+  return undefined;
 }
 
 export function validateStep(step: StepId, data: OnboardingData): StepErrors {
@@ -73,8 +84,19 @@ export function validateStep(step: StepId, data: OnboardingData): StepErrors {
       if (data.medicalConditions.includes("Other") && !data.otherMedicalCondition.trim())
         e.otherMedicalCondition = "Please specify your condition.";
       if (data.takingMedication === null) e.takingMedication = "Please let us know if you take any medications.";
-      if (data.takingMedication && !data.medications.some((m) => m.trim()))
-        e.medications = "Please add at least one medication.";
+      if (data.takingMedication) {
+        const filled = data.medications.filter((m) => m.name.trim());
+        if (!filled.length) e.medications = "Please add at least one medication.";
+        else {
+          for (const m of filled) {
+            const problem = medicationProblem(m);
+            if (problem) {
+              e.medications = `${m.name.trim()}: ${problem}`;
+              break;
+            }
+          }
+        }
+      }
       break;
     case 7:
       if (data.symptoms.includes("Other") && !data.customSymptom.trim())

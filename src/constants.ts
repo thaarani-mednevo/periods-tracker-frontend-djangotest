@@ -3,6 +3,7 @@ import type {
   CycleLengthOption,
   FertilityGoal,
   FertilityTracking,
+  MedicationEntry,
   OnboardingData,
   Option,
   PeriodRegularity,
@@ -184,6 +185,8 @@ export const GOAL_TRACKING: Record<Exclude<FertilityGoal, "">, GoalTrackingConfi
     optional: ["bbt", "lhTest", "symptoms", "libido"],
     explanation:
       "Cervical mucus and intercourse tracking can provide additional context around your fertile window.",
+    safety:
+      "Fertile-window and ovulation estimates are predictions from your logs. They don't confirm that you ovulated and can't guarantee conception. If you've been trying for 12 months (6 months if you're 35 or older), or your cycles are very irregular, please talk to a doctor.",
     labels: { lhTest: "LH ovulation test", symptoms: "Ovulation symptoms" },
   },
   "pregnancy-prevention": {
@@ -229,6 +232,15 @@ export const HEIGHT_RANGE = { min: 100, max: 250 } as const;
 export const WEIGHT_RANGE = { min: 25, max: 300 } as const;
 export const AGE_RANGE = { min: 9, max: 70 } as const;
 
+export const newMedication = (): MedicationEntry => ({
+  name: "",
+  dose: " mg",
+  frequency: "Once daily",
+  times: [""],
+  startDate: "",
+  endDate: "",
+});
+
 export const INITIAL_DATA: OnboardingData = {
   lastPeriod: "",
   name: "",
@@ -244,7 +256,7 @@ export const INITIAL_DATA: OnboardingData = {
   medicalConditions: [],
   otherMedicalCondition: "",
   takingMedication: null,
-  medications: [""],
+  medications: [newMedication()],
   symptoms: [],
   customSymptom: "",
   moods: [],

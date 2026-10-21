@@ -4,7 +4,7 @@ import { useAsync } from "../../../hooks/useAsync";
 import type { CycleState } from "../../../services/cycle";
 import { longDate } from "../../../lib/isoDate";
 import { getPhaseInsight } from "../../../services/insights";
-import { ENERGIES, LEVELS, MOODS, SLEEPS, type Energy, type Level, type Mood, type Sleep } from "../../../services/logs";
+import { ENERGIES, LEVELS, MOODS, SLEEPS, type Energy, type Level, type Mood, type Sleep, type SymptomKey } from "../../../services/logs";
 import type { OnboardingData } from "../../../types";
 import { AIWellnessInsights } from "../shared/daily-log/AIWellnessInsights";
 import { BodyWeightSection } from "../shared/daily-log/BodyWeightSection";
@@ -14,11 +14,19 @@ import { DailyActivitySection } from "../shared/daily-log/DailyActivitySection";
 import { HydrationSection } from "../shared/daily-log/HydrationSection";
 import { MedicationSection } from "../shared/daily-log/MedicationSection";
 import { PHASE_TITLE } from "../shared/daily-log/phaseCopy";
+import { LUTEAL_SYMPTOMS } from "./lutealContent";
+import { IntercourseSection, SymptomTracking, symptomExtras } from "../shared/daily-log/SymptomsSection";
 import { SaveLogBar } from "../shared/daily-log/SaveLogBar";
 import { useDailyLog } from "../shared/daily-log/useDailyLog";
 import { Battery } from "../shared/ui/Battery";
 import { Emoji } from "../shared/ui/Emoji";
-import { CRAVING_EMOJI, EnergyBolt, FATIGUE_BATTERY, MoodFace, SLEEP_EMOJI } from "../shared/ui/visuals";
+import { CRAVING_EMOJI, EnergyBolt, SLEEP_EMOJI } from "../shared/ui/visuals";
+import moodAvatar from "../../../assets/phases/patient.png";
+import moodHappy from "../../../assets/phases/follicular/mood_happy.png";
+import moodCalm from "../../../assets/phases/follicular/mood_calm.png";
+import moodNeutral from "../../../assets/phases/follicular/mood_neutral.png";
+import moodIrritable from "../../../assets/phases/follicular/mood_irritable.png";
+import moodSad from "../../../assets/phases/follicular/mood_sad.png";
 import { LutealShell, type LutealTab } from "./components/Shell";
 import { useCallback, useEffect } from "react";
 
@@ -26,10 +34,27 @@ const tileEmoji = "text-[clamp(26px,2.1vw,36px)]";
 const headerEmoji = "text-[clamp(22px,1.7vw,28px)]";
 const batteryH = "h-[clamp(30px,2.5vw,42px)]";
 
-const MOOD_OPTIONS: ChoiceOption<Mood>[] = MOODS.map((value) => ({ value, visual: <MoodFace value={value} /> }));
+const MOOD_IMG: Record<Mood, string> = {
+  Happy: moodHappy,
+  Calm: moodCalm,
+  Neutral: moodNeutral,
+  Irritable: moodIrritable,
+  Sad: moodSad,
+};
+const MOOD_OPTIONS: ChoiceOption<Mood>[] = MOODS.map((value) => ({
+  value,
+  visual: <img src={MOOD_IMG[value]} alt="" className="aspect-square h-full rounded-full object-cover" />,
+}));
+// Daily Log tiles follow the design: the battery fills up as the fatigue level goes up.
+const FATIGUE_TILE: Record<Level, { level: number; color: string }> = {
+  None: { level: 0.1, color: "#F43F5E" },
+  Mild: { level: 0.5, color: "#F59E0B" },
+  Moderate: { level: 0.75, color: "#22C55E" },
+  High: { level: 1, color: "#22C55E" },
+};
 const FATIGUE_OPTIONS: ChoiceOption<Level>[] = LEVELS.map((value) => ({
   value,
-  visual: <Battery level={FATIGUE_BATTERY[value].level} color={FATIGUE_BATTERY[value].color} className={batteryH} />,
+  visual: <Battery level={FATIGUE_TILE[value].level} color={FATIGUE_TILE[value].color} className={batteryH} />,
 }));
 const SLEEP_OPTIONS: ChoiceOption<Sleep>[] = SLEEPS.map((value) => ({
   value,
@@ -64,6 +89,8 @@ export function LutealDailyLog({
   }, [log.selectedDate, log.today, initialDay, onDateChange]);
   
   const { draft } = log;
+  // Disclaimer + per-symptom notices from the backend; read from the draft (see symptomExtras).
+  const symptomExtra = symptomExtras(draft);
 
 
   const info = log.cycleInfo(log.selectedDate);
@@ -99,10 +126,10 @@ export function LutealDailyLog({
             <button type="button" onClick={log.retry} className="font-semibold underline">Try again</button>
           </InfoCard>
         )}
-        {!log.ready && !log.loadError && <p className="text-lu-body text-lu-ink-muted">Loading…</p>}
+        {!draft && !log.loadError && <p className="text-lu-body text-lu-ink-muted">Loading…</p>}
 
-        {log.ready && draft && (
-          <>
+        {draft && (
+          <div aria-busy={!log.ready} className={`flex flex-col gap-lu-grid transition-opacity duration-200 ${log.ready ? "" : "pointer-events-none opacity-60"}`}>
             <div className="pt-1">
               <h2 className="text-lu-title font-bold text-lu-ink">{PHASE_TITLE[info.phase]}</h2>
               <p className="mt-0.5 text-lu-body text-lu-ink-muted">
@@ -123,7 +150,7 @@ export function LutealDailyLog({
 
             <div className="grid grid-cols-1 gap-lu-grid md:grid-cols-2 xl:grid-cols-3">
               <ChoiceSection
-                icon={<Emoji symbol="😊" label="Mood" className={headerEmoji} />}
+                icon={<img src={moodAvatar} alt="" className="size-full object-cover object-top" />}
                 title="Mood"
                 subtitle="Select how you feel today"
                 info
@@ -133,7 +160,7 @@ export function LutealDailyLog({
                 onChange={(v) => log.update("mood", v)}
               />
               <BodyWeightSection value={log.weightText} onChange={log.changeWeight} />
-              <MedicationSection medications={log.medications} date={log.selectedDate} onStatusChange={log.setMedStatus} onAdd={log.addMed} />
+              <MedicationSection medications={log.medications} date={log.selectedDate} onStatusChange={log.setMedStatus} onAdd={log.addMed} onRemove={log.removeMed} />
             </div>
             {log.medError && <InfoCard live>{log.medError}</InfoCard>}
 
@@ -182,8 +209,34 @@ export function LutealDailyLog({
               <HydrationSection {...log.hydration} onChange={log.changeWater} />
             </div>
 
+            {/* Symptoms + Intercourse: always the last cards, right above Save */}
+            {info.phase === "luteal" && (
+              <>
+                <SymptomTracking
+                  options={LUTEAL_SYMPTOMS}
+                  phaseLabel="Luteal Phase symptoms"
+                  symptoms={draft.symptoms}
+                  other={draft.customSymptom ?? ""}
+                  severity={draft.painScore}
+                  disclaimer={symptomExtra.disclaimer}
+                  notices={symptomExtra.notices}
+                  onSymptoms={(next) => log.update("symptoms", next as SymptomKey[])}
+                  onOther={(text) => log.update("customSymptom", text)}
+                  onSeverity={(n) => log.update("painScore", n)}
+                />
+                <IntercourseSection
+                  intercourse={draft.intercourse}
+                  protection={draft.protection ?? null}
+                  details={draft.notes ?? ""}
+                  onIntercourse={(v) => log.update("intercourse", v)}
+                  onProtection={(v) => log.update("protection", v)}
+                  onDetails={(v) => log.update("notes", v === "" ? null : v)}
+                />
+              </>
+            )}
+
             <SaveLogBar date={log.selectedDate} onSave={log.save} error={log.error} noChanges={log.noChanges} status={log.status} />
-          </>
+          </div>
         )}
       </div>
     </div>

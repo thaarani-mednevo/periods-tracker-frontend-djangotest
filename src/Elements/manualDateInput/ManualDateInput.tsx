@@ -27,22 +27,22 @@ interface ManualDateInputProps {
 }
 
 export function ManualDateInput({ value, onChange, error, errorId }: ManualDateInputProps) {
-  const dayId = useId();
   const monthId = useId();
+  const dayId = useId();
   const yearId = useId();
 
   const parsed = useMemo(() => parseISODate(value), [value]);
-
-  const [dayStr, setDayStr] = useState(() => (parsed ? String(parsed.getUTCDate()) : ""));
+  
   const [monthStr, setMonthStr] = useState(() => (parsed ? String(parsed.getUTCMonth()) : ""));
+  const [dayStr, setDayStr] = useState(() => (parsed ? String(parsed.getUTCDate()) : ""));
   const [yearStr, setYearStr] = useState(() => (parsed ? String(parsed.getUTCFullYear()) : ""));
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // Synchronize internal fields whenever `value` prop changes (e.g. Today button, Calendar dialog, or restored progress)
   useEffect(() => {
     if (parsed) {
-      setDayStr(String(parsed.getUTCDate()));
       setMonthStr(String(parsed.getUTCMonth()));
+      setDayStr(String(parsed.getUTCDate()));
       setYearStr(String(parsed.getUTCFullYear()));
       setValidationError(null);
     } else if (!value) {
@@ -53,27 +53,28 @@ export function ManualDateInput({ value, onChange, error, errorId }: ManualDateI
     }
   }, [value, parsed]);
 
-  const validateAndSync = (newDay: string, newMonth: string, newYear: string) => {
-    setDayStr(newDay);
+  const validateAndSync = (newMonth: string,newDay: string,  newYear: string) => {
+    
     setMonthStr(newMonth);
+    setDayStr(newDay);
     setYearStr(newYear);
 
     // If completely blank, clear error and date
-    if (!newDay.trim() && !newMonth.trim() && !newYear.trim()) {
+    if (!newMonth.trim() && !newDay.trim() && !newYear.trim()) {
       setValidationError(null);
       onChange("");
       return;
     }
 
     // If partially filled, wait for all fields
-    if (!newDay.trim() || !newMonth.trim() || !newYear.trim()) {
+    if (!newMonth.trim() || !newDay.trim() || !newYear.trim()) {
       setValidationError(null);
       onChange("");
       return;
     }
-
-    const d = parseInt(newDay, 10);
+    
     const m = parseInt(newMonth, 10);
+    const d = parseInt(newDay, 10);
     const y = parseInt(newYear, 10);
 
     if (isNaN(y) || newYear.length !== 4 || y < 1900 || y > 2100) {
@@ -117,18 +118,20 @@ export function ManualDateInput({ value, onChange, error, errorId }: ManualDateI
     onChange(toISODate(date));
   };
 
-  const handleDayChange = (val: string) => {
-    const cleaned = val.replace(/\D/g, "").slice(0, 2);
-    validateAndSync(cleaned, monthStr, yearStr);
+  const handleMonthChange = (val: string) => {
+    validateAndSync(val, dayStr, yearStr);
   };
 
-  const handleMonthChange = (val: string) => {
-    validateAndSync(dayStr, val, yearStr);
+  const handleDayChange = (val: string) => {
+    const cleaned = val.replace(/\D/g, "").slice(0, 2);
+    validateAndSync(monthStr, cleaned, yearStr);
   };
+
+  
 
   const handleYearChange = (val: string) => {
     const cleaned = val.replace(/\D/g, "").slice(0, 4);
-    validateAndSync(dayStr, monthStr, cleaned);
+    validateAndSync(monthStr, dayStr, cleaned);
   };
 
   const displayError = validationError || error;
@@ -136,28 +139,6 @@ export function ManualDateInput({ value, onChange, error, errorId }: ManualDateI
   return (
     <div className="rounded-[18px] border border-[#F2DDE7] bg-white p-3.5 sm:p-4 shadow-[0_2px_10px_rgba(40,20,30,0.03)]">
       <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5">
-        {/* DAY field */}
-        <div className="flex flex-col">
-          <label htmlFor={dayId} className="mb-1.5 text-center text-eyebrow font-semibold uppercase tracking-[0.14em] text-ink-muted">
-            DAY
-          </label>
-          <input
-            id={dayId}
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={2}
-            placeholder="DD"
-            value={dayStr}
-            onChange={(e) => handleDayChange(e.target.value)}
-            className={cn(
-              "h-12 w-full rounded-xl border border-[#F1DCE4] bg-[#FFF8FB] text-center text-base font-bold text-ink placeholder:font-normal placeholder:text-ink-placeholder transition-all",
-              "hover:border-hover-border hover:bg-hover-bg focus:border-rose focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose/20",
-              displayError && "border-rose/50 bg-[#FFF5F8]",
-            )}
-            aria-describedby={displayError && errorId ? errorId : undefined}
-          />
-        </div>
 
         {/* MONTH field */}
         <div className="flex flex-col">
@@ -189,6 +170,31 @@ export function ManualDateInput({ value, onChange, error, errorId }: ManualDateI
             <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-rose" aria-hidden="true" />
           </div>
         </div>
+
+        {/* DAY field */}
+        <div className="flex flex-col">
+          <label htmlFor={dayId} className="mb-1.5 text-center text-eyebrow font-semibold uppercase tracking-[0.14em] text-ink-muted">
+            DAY
+          </label>
+          <input
+            id={dayId}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={2}
+            placeholder="DD"
+            value={dayStr}
+            onChange={(e) => handleDayChange(e.target.value)}
+            className={cn(
+              "h-12 w-full rounded-xl border border-[#F1DCE4] bg-[#FFF8FB] text-center text-base font-bold text-ink placeholder:font-normal placeholder:text-ink-placeholder transition-all",
+              "hover:border-hover-border hover:bg-hover-bg focus:border-rose focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose/20",
+              displayError && "border-rose/50 bg-[#FFF5F8]",
+            )}
+            aria-describedby={displayError && errorId ? errorId : undefined}
+          />
+        </div>
+
+        
 
         {/* YEAR field */}
         <div className="flex flex-col">

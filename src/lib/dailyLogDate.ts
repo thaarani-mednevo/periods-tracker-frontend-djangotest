@@ -25,6 +25,13 @@ export function addMonths(iso: string, n: number) {
 export const formatDate = (iso: string, options: Intl.DateTimeFormatOptions, locale = "en-US") =>
   new Date(utc(iso)).toLocaleDateString(locale, { ...options, timeZone: "UTC" });
 
+/** ISO timestamp → "02:15 PM" in local time. Always 12-hour, never the device's 24h setting. */
+export function formatClock(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${pad(d.getHours() % 12 || 12)}:${pad(d.getMinutes())} ${d.getHours() < 12 ? "AM" : "PM"}`;
+}
+
 /** "08:00" or "08:00:00" → "08:00 AM" */
 export function formatTime(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);

@@ -1,4 +1,5 @@
-import type { Journey } from "../../services/settings";
+import { GOAL_TRACKING } from "../../constants";
+import { goalFromJourney, type Journey } from "../../services/settings";
 
 export interface JourneyOption {
   id: Journey;
@@ -39,5 +40,8 @@ export const JOURNEY_OPTIONS: readonly JourneyOption[] = [
     iconColor: "text-[#8B5CF6]",
   },
 ];
+
+/** The safety note for a journey (trying to conceive / pregnancy prevention), from the same copy onboarding shows. */
+export const getJourneySafety = (id: Journey): string | undefined => GOAL_TRACKING[goalFromJourney(id) || "understand-cycle"].safety;
 
 export const getJourneyOption = (id: Journey): JourneyOption => JOURNEY_OPTIONS.find((j) => j.id === id) ?? JOURNEY_OPTIONS[0];

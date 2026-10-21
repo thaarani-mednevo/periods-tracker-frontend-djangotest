@@ -47,7 +47,7 @@ Write-Host "Fixed: Elements/sliderInput/SliderInput.tsx"
 
 $path = Join-Path $root "Elements\mobileProgress\MobileProgress.tsx"
 $content = Get-Content -Raw -Encoding utf8 $path
-$content = $content.Replace('import { STEPS, TOTAL_STEPS } from "../constants";', 'import { STEPS, TOTAL_STEPS } from "../../constants";')
+$content = $content.Replace('import { STEPS, TOTAL_STEPS } from "../constants";', 'import { STEPS, TOTAL_STEPS } from "../../s";')
 $content = $content.Replace('import type { StepId } from "../types";', 'import type { StepId } from "../../types";')
 $content = $content.Replace('import { progressPercent } from "./ProgressStepper";', 'import { progressPercent } from "../progressStepper/ProgressStepper";')
 Set-Content -Path $path -Value $content -Encoding utf8 -NoNewline

@@ -26,6 +26,7 @@ export const SYMPTOMS = [
   { id: "anxiety", label: "Anxiety" },
 ] as const;
 export const PRODUCT_TYPES = ["Pad", "Tampon", "Menstrual cup", "Other"] as const;
+export const PROTECTIONS = ["None", "Condom", "Pill", "Other"] as const;
 
 export type Flow = (typeof FLOWS)[number];
 export type BloodColor = (typeof BLOOD_COLORS)[number];
@@ -40,6 +41,7 @@ export type Sleep = (typeof SLEEPS)[number];
 export type Level = (typeof LEVELS)[number];
 export type SymptomKey = (typeof SYMPTOMS)[number]["id"];
 export type ProductType = (typeof PRODUCT_TYPES)[number];
+export type Protection = (typeof PROTECTIONS)[number];
 
 export const PRODUCT_SIZES: Record<ProductType, readonly string[]> = {
   Pad: ["Small", "Medium", "Large", "Overnight"],
@@ -65,6 +67,8 @@ export interface DailyLog {
   cramps: Cramps | null;
   painScore: number | null;
   symptoms: SymptomKey[];
+  /** Free-text symptom typed by the user. Needs backend support (see saveDailyLog). */
+  customSymptom?: string | null;
   mood: Mood | null;
   energy: Energy | null;
   libido: Libido | null;
@@ -73,6 +77,8 @@ export interface DailyLog {
   bbtTime: string | null;
   lhTest: LhTest | null;
   intercourse: boolean | null;
+  /** Needs backend support (see saveDailyLog). */
+  protection?: Protection | null;
   sleep: Sleep | null;
   fatigue: Level | null;
   cravings: Level | null;
@@ -94,20 +100,64 @@ export function emptyLog(date: string): DailyLog {
 
 const q = () => ({ date: localISODate() });
 
-export const getDailyLog = (day: string, signal?: AbortSignal) =>
-  apiRequest<DailyLog>(`/api/v1/logs/${day}`, { query: q(), signal });
+/** Days already loaded (or prefetched), kept for 60s so picking a neighbouring date opens instantly.
+ *  A save replaces the entry; logout / login clears them (see clearCycleCache). */
+const DAY_TTL_MS = 60_000;
+const dayCache = new Map<string, { log: DailyLog; at: number }>();
+const dayInflight = new Set<string>();
+const fresh = (day: string) => {
+  const hit = dayCache.get(day);
+  return hit && Date.now() - hit.at < DAY_TTL_MS ? hit.log : null;
+};
+
+export const clearDailyLogCache = () => {
+  dayCache.clear();
+  dayInflight.clear();
+};
+
+export const getDailyLog = async (day: string, signal?: AbortSignal) => {
+  const hit = fresh(day);
+  if (hit) return hit;
+  const log = await apiRequest<DailyLog>(`/api/v1/logs/${day}`, { query: q(), signal });
+  dayCache.set(day, { log, at: Date.now() });
+  return log;
+};
+
+/** Loads a day in the background so the next click on it is instant. Failures stay silent. */
+export function prefetchDailyLog(day: string) {
+  if (fresh(day) || dayInflight.has(day)) return;
+  dayInflight.add(day);
+  apiRequest<DailyLog>(`/api/v1/logs/${day}`, { query: q() })
+    .then((log) => dayCache.set(day, { log, at: Date.now() }))
+    .catch(() => {})
+    .finally(() => dayInflight.delete(day));
+}
 
 export function saveDailyLog(day: string, log: DailyLog) {
   const body: Partial<DailyLog> = { ...log };
   delete body.date;
-  return apiRequest<DailyLog>(`/api/v1/logs/${day}`, { method: "PUT", query: q(), body });
+  // customSymptom / protection are newer fields. Only send them when filled in, so a backend that
+  // doesn't know them yet keeps accepting every other save.
+  if (!body.customSymptom?.trim()) delete body.customSymptom;
+  if (body.protection == null) delete body.protection;
+  dayCache.delete(day);
+  return apiRequest<DailyLog>(`/api/v1/logs/${day}`, { method: "PUT", query: q(), body }).then((saved) => {
+    dayCache.set(day, { log: saved, at: Date.now() });
+    return saved;
+  });
 }
 
 export const getLogRange = (start: string, end: string, signal?: AbortSignal) =>
   apiRequest<{ logs: DailyLog[] }>("/api/v1/logs", { query: { ...q(), start, end }, signal });
-
 // ---- medications
-export type IntakeStatus = "taken" | "skipped" | "pending";
+export type IntakeStatus = "taken" | "skipped" | "missed" | "pending";
+
+/** One dose slot of the day (1 = first dose). `loggedAt` is an ISO timestamp, null while pending. */
+export interface DoseLog {
+  slot: number;
+  status: IntakeStatus;
+  loggedAt: string | null;
+}
 
 export interface Medication {
   id: number;
@@ -115,11 +165,17 @@ export interface Medication {
   dose: string;
   form: string;
   frequency: string;
-  time: string;
+ time: string;
+  /** Oru dose ku oru time, sorted. Multi-time varuvadharku munnadi save aana meds la illa */
+  times?: string[];
   startDate: string | null;
   endDate: string | null;
   reminder: boolean;
-  status: IntakeStatus;
+  /** Tablets the user has in stock (optional) */
+  tabletCount?: number | null;
+   status: IntakeStatus;
+  /** Per-slot log for the requested day (from the backend) */
+  doses?: DoseLog[];
 }
 
 export interface NewMedication {
@@ -127,10 +183,12 @@ export interface NewMedication {
   dose: string;
   form: string;
   frequency: string;
-  time: string;
+ time: string;
+  times?: string[];
   startDate: string | null;
   endDate: string | null;
   reminder: boolean;
+  tabletCount?: number | null;
 }
 
 export const getMedications = (day: string, signal?: AbortSignal) =>
@@ -144,11 +202,11 @@ export const updateMedication = (id: number, m: Partial<NewMedication>) =>
 
 export const removeMedication = (id: number) =>
   apiRequest<void>(`/api/v1/medications/${id}`, { method: "DELETE", query: q() });
-export const setIntake = (id: number, day: string, status: "taken" | "skipped" | null) =>
-  apiRequest<{ id: number; status: IntakeStatus }>(`/api/v1/medications/${id}/intake/${day}`, {
+export const setIntake = (id: number, day: string, status: "taken" | "skipped" | "missed" | null, slot = 1) =>
+  apiRequest<{ id: number; slot: number; status: IntakeStatus; loggedAt: string | null }>(`/api/v1/medications/${id}/intake/${day}`, {
     method: "PUT",
     query: q(),
-    body: { status },
+    body: { status, slot },
   });
 
 export interface IntakeRecord {
@@ -156,7 +214,10 @@ export interface IntakeRecord {
   name: string;
   dose: string;
   /** "pending" = due on the last day of the range but not marked yet */
-  status: "taken" | "skipped" | "pending";
+  status: "taken" | "skipped" | "missed" | "pending";
+  /** 1-based dose slot of that day; absent on "pending" rows */
+  slot?: number;
+  loggedAt?: string | null;
 }
 
 export const getMedicationHistory = (start: string, end: string, signal?: AbortSignal) =>

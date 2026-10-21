@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import { useEffect, type ComponentType } from "react";
 import type { PhaseId } from "../dashboard/phases";
 import { FollicularOverview } from "./follicular/FollicularOverview";
 import { LutealOverview } from "./luteal/LutealOverview";
@@ -13,3 +13,15 @@ export const PHASE_VIEWS: Partial<Record<PhaseId, ComponentType<PhaseViewProps>>
   ovulation: OvulationRouter, // picks the default, Trying to Conceive or Pregnancy Prevention screen from Settings
   luteal: LutealOverview,
 };
+
+/** Tags <html> with the active phase so phaseUi.css can swap the --text-lu-* scale for that phase. */
+export function usePhaseScale(phase: PhaseId | undefined) {
+  useEffect(() => {
+    if (!phase) return;
+    const root = document.documentElement;
+    root.dataset.phase = phase;
+    return () => {
+      delete root.dataset.phase;
+    };
+  }, [phase]);
+}

@@ -4,10 +4,7 @@ import {
   Droplet,
   Flame,
   Info,
-  Minus,
-  Plus,
   Sparkle,
-  Trash2,
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
@@ -23,7 +20,7 @@ import {
   ENERGIES,
   FLOWS,
   MOODS,
-  PRODUCT_TYPES,
+  type SymptomKey,
 } from "../../../services/logs";
 import type { CycleState } from "../../../services/cycle";
 import type { OnboardingData } from "../../../types";
@@ -34,13 +31,46 @@ import { MedicationSection } from "../shared/daily-log/MedicationSection";
 import { PHASE_TITLE } from "../shared/daily-log/phaseCopy";
 import { SaveLogBar } from "../shared/daily-log/SaveLogBar";
 import { useDailyLog } from "../shared/daily-log/useDailyLog";
-import { MoodFace } from "../shared/ui/visuals";
+import moodHappy from "../../../assets/phases/follicular/mood_happy.png";
+import moodCalm from "../../../assets/phases/follicular/mood_calm.png";
+import moodNeutral from "../../../assets/phases/follicular/mood_neutral.png";
+import moodIrritable from "../../../assets/phases/follicular/mood_irritable.png";
+import moodSad from "../../../assets/phases/follicular/mood_sad.png";
 
 import type { LutealTab } from "../luteal/components/Shell";
 import { LutealShell } from "../luteal/components/Shell";
+import { AddProductModal } from "./dailyLog/AddProductModal";
+import { IntercourseSection, SymptomTracking, symptomExtras } from "../shared/daily-log/SymptomsSection";
+import { ProductsUsedCard, type ProductPatch } from "./dailyLog/ProductsUsedCard";
+import { mergeProducts } from "./dailyLog/products";
+
+const MOOD_IMAGES: Record<string, string> = {
+  Happy: moodHappy,
+  Calm: moodCalm,
+  Neutral: moodNeutral,
+  Irritable: moodIrritable,
+  Sad: moodSad,
+};
+
+/**
+ * Menstrual-phase symptom pills, in reference order. Ids are sent to the backend, which
+ * normalises them ("backPain" = "back_pain", "discharge" = cervical mucus / discharge).
+ * "Other" is not a stored symptom: it focuses the free-text box below.
+ */
+const MENSTRUAL_SYMPTOMS: { id: string; label: string }[] = [
+  { id: "cramps", label: "Cramps" },
+  { id: "headache", label: "Headache" },
+  { id: "backPain", label: "Back pain" },
+  { id: "bloating", label: "Bloating" },
+  { id: "breastTenderness", label: "Breast tenderness" },
+  { id: "fatigue", label: "Fatigue" },
+  { id: "nausea", label: "Nausea" },
+  { id: "acne", label: "Acne" },
+  { id: "discharge", label: "Discharge" },
+];
 
 /* -------------------------------------------------------------------------- */
-/* Shared look (same as the original menstruation UI)                         */
+/* Shared look (same as the menstruation UI)                                  */
 /* -------------------------------------------------------------------------- */
 
 const CARD =
@@ -136,27 +166,6 @@ function FlowIcon({ flow }: { flow: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Products                                                                   */
-/* -------------------------------------------------------------------------- */
-
-const PRODUCT_SIZES: Record<string, readonly string[]> = {
-  Pad: ["Small", "Medium", "Large", "Overnight"],
-  Tampon: ["Light", "Regular", "Super"],
-  "Menstrual cup": ["Small", "Medium", "Large"],
-  Other: [],
-};
-
-const PRODUCT_COPY: Record<string, { title: string; hint: string }> = {
-  Pad: { title: "Pads", hint: "Disposable pads" },
-  Tampon: { title: "Tampons", hint: "Internal protection" },
-  "Menstrual cup": { title: "Menstrual cup", hint: "Reusable cup" },
-  Other: { title: "Other", hint: "Anything else you used" },
-};
-
-const QTY_MIN = 1;
-const QTY_MAX = 20;
-
-/* -------------------------------------------------------------------------- */
 /* Props                                                                      */
 /* -------------------------------------------------------------------------- */
 
@@ -181,6 +190,8 @@ export function MenstrualDailyLog({
 }: MenstrualDailyLogProps) {
   const log = useDailyLog(initialDay);
   const { draft } = log;
+  // Disclaimer + per-symptom notices from the backend; read from the draft (see symptomExtras).
+  const symptomExtra = symptomExtras(draft);
 
   const [addingProduct, setAddingProduct] = useState(false);
 
@@ -206,24 +217,17 @@ export function MenstrualDailyLog({
 
   const info = log.cycleInfo(log.selectedDate);
   const isToday = log.selectedDate === log.today;
+  const isFuture = log.selectedDate > log.today;
 
   /* ---- Products ---------------------------------------------------------- */
 
-  const products = draft?.products ?? [];
+  // Same product + size + label is shown, and saved on the next edit, as one row with a quantity.
+  const products = mergeProducts(draft?.products ?? []);
 
-  const addProduct = (type: (typeof PRODUCT_TYPES)[number]) => {
-    const sizes = PRODUCT_SIZES[type] ?? [];
-    log.update("products", [
-      ...products,
-      { type, label: type, size: sizes[0] ?? null, quantity: QTY_MIN },
-    ]);
-    setAddingProduct(false);
-  };
-
-  const patchProduct = (index: number, patch: { quantity?: number; size?: string | null }) =>
+  const patchProduct = (index: number, patch: ProductPatch) =>
     log.update(
       "products",
-      products.map((p, i) => (i === index ? { ...p, ...patch } : p)),
+      mergeProducts(products.map((p, i) => (i === index ? { ...p, ...patch } : p))),
     );
 
   const removeProduct = (index: number) =>
@@ -257,7 +261,7 @@ export function MenstrualDailyLog({
       <LutealShell data={data} state={state} active="daily-log" onNavigate={onNavigate} />
 
       <div className="flex flex-col gap-lu-grid">
-        {/* Date selector (unchanged) */}
+        {/* Date selector: same shared strip as the follicular, ovulation and luteal screens */}
         <CycleDayStrip
           today={log.today}
           dates={log.dates}
@@ -286,12 +290,12 @@ export function MenstrualDailyLog({
           </InfoCard>
         )}
 
-        {!log.ready && !log.loadError && (
+        {!draft && !log.loadError && (
           <p className="text-lu-body text-lu-ink-muted">Loading…</p>
         )}
 
-        {log.ready && draft && (
-          <>
+        {draft && (
+          <fieldset disabled={isFuture || !log.ready} aria-busy={!log.ready} className={`m-0 flex min-w-0 flex-col gap-lu-grid border-0 p-0 transition-opacity duration-200 ${log.ready ? "" : "opacity-60"}`}>
             {/* Phase heading */}
             <div className="pt-1">
               <h2 className="text-lu-title font-bold text-lu-ink">{PHASE_TITLE[info.phase]}</h2>
@@ -300,6 +304,13 @@ export function MenstrualDailyLog({
                 {longDate(log.selectedDate)}
               </p>
             </div>
+
+            {isFuture && (
+              <p role="note" className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                This date is in the future. You can view the estimated phase, but logging is only available for today and earlier.
+              </p>
+            )}
 
             {isToday && (
               <AIWellnessInsights
@@ -310,180 +321,58 @@ export function MenstrualDailyLog({
               />
             )}
 
-            {/* Two columns, same as the original menstruation UI */}
-            <div className="grid w-full grid-cols-1 items-start gap-5 lg:grid-cols-2">
-              {/* ------------------------- LEFT ------------------------- */}
-              <div className="w-full space-y-5">
-                {/* Blood flow */}
-                <section
-                  aria-labelledby={flowId}
-                  className="relative flex min-h-[190px] w-full flex-col justify-between overflow-hidden rounded-[22px] p-5 text-white shadow-[0_8px_28px_rgba(23,21,43,0.08)] sm:p-6"
-                  style={{ background: "linear-gradient(135deg, #FF5E62 0%, #E83A64 45%, #B81958 100%)" }}
-                >
-                  <div className="z-10 space-y-1 text-left">
-                    <h3 id={flowId} className="block text-xs font-bold uppercase tracking-wider text-white/90">
-                      Blood flow
-                    </h3>
-                    <p className="text-2xl font-black leading-tight tracking-tight sm:text-3xl" aria-live="polite">
-                      {draft.flow ?? "Not logged"}
-                    </p>
-                  </div>
-
-                  <div role="group" aria-labelledby={flowId} className="z-10 grid grid-cols-4 gap-2 pt-4">
-                    {[...FLOWS].sort((a, b) => flowRank(a) - flowRank(b)).map((flow) => {
-                      const selected = flow === draft.flow;
-                      return (
-                        <button
-                          key={flow}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() => log.update("flow", selected ? null : flow)}
-                          className={`flex min-h-[52px] cursor-pointer flex-col items-center justify-center gap-1 rounded-full px-1 text-xs font-bold transition-all duration-200 ${
-                            selected ? "bg-white text-[#A3155A] shadow-md" : "bg-white/20 text-white hover:bg-white/30"
-                          }`}
-                        >
-                          <span className="flex h-4 items-center justify-center" aria-hidden="true">
-                            <FlowIcon flow={flow} />
-                          </span>
-                          <span className="max-w-full truncate text-[0.72rem] sm:text-xs">{flow}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -bottom-10 -right-10 h-36 w-36 rounded-full bg-white/10 blur-xl"
-                  />
-                </section>
-
-                {/* Products used */}
-                <section className={`${CARD} sm:p-6`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className={LABEL}>Products used</h3>
-                    <button
-                      type="button"
-                      onClick={() => setAddingProduct((v) => !v)}
-                      aria-expanded={addingProduct}
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-pink-200 bg-[#FFF0F6] px-4 py-2 text-xs font-bold text-[#D81B60] hover:bg-pink-100"
-                    >
-                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                      Add another entry
-                    </button>
-                  </div>
-
-                  {addingProduct && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {PRODUCT_TYPES.map((type) => (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => addProduct(type)}
-                          className="cursor-pointer rounded-full border border-[#F1EEF3] bg-white px-4 py-2 text-xs font-semibold text-[#55607A] hover:border-pink-200 hover:bg-pink-50"
-                        >
-                          {PRODUCT_COPY[type]?.title ?? type}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {products.length === 0 ? (
-                    <p className="mt-4 text-xs font-medium text-[#68708A]">
-                      No products logged for this day. Use “Add another entry” to log one.
-                    </p>
-                  ) : (
-                    <ul className="mt-4 space-y-3">
-                      {products.map((product, index) => {
-                        const copy = PRODUCT_COPY[product.type] ?? { title: product.type, hint: "" };
-                        const sizes = PRODUCT_SIZES[product.type] ?? [];
-                        return (
-                          <li
-                            key={`${product.type}-${index}`}
-                            className="rounded-2xl border border-pink-100 bg-[#FFF8FB] p-4"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex min-w-0 items-center gap-3">
-                                <span
-                                  aria-hidden="true"
-                                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#F43F8F] shadow-sm"
-                                >
-                                  <Droplet className="h-5 w-5" />
-                                </span>
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-bold text-[#17152B]">{copy.title}</p>
-                                  <p className="truncate text-xs font-medium text-[#68708A]">{copy.hint}</p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <div className="flex items-center rounded-full border border-pink-100 bg-white">
-                                  <button
-                                    type="button"
-                                    aria-label={`Decrease ${copy.title}`}
-                                    disabled={product.quantity <= QTY_MIN}
-                                    onClick={() => patchProduct(index, { quantity: product.quantity - 1 })}
-                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[#17152B] disabled:cursor-not-allowed disabled:opacity-30"
-                                  >
-                                    <Minus className="h-4 w-4" aria-hidden="true" />
-                                  </button>
-                                  <span className="min-w-6 text-center text-sm font-bold text-[#17152B]" aria-live="polite">
-                                    {product.quantity}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    aria-label={`Increase ${copy.title}`}
-                                    disabled={product.quantity >= QTY_MAX}
-                                    onClick={() => patchProduct(index, { quantity: product.quantity + 1 })}
-                                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[#17152B] disabled:cursor-not-allowed disabled:opacity-30"
-                                  >
-                                    <Plus className="h-4 w-4" aria-hidden="true" />
-                                  </button>
-                                </div>
-                                <button
-                                  type="button"
-                                  aria-label={`Remove ${copy.title}`}
-                                  onClick={() => removeProduct(index)}
-                                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[#8A92A6] hover:bg-white hover:text-[#D81B60]"
-                                >
-                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                              </div>
-                            </div>
-
-                            {sizes.length > 0 && (
-                              <label className="mt-3 block">
-                                <span className="text-[0.66rem] font-bold uppercase tracking-wider text-[#68708A]">
-                                  Size / absorbency
-                                </span>
-                                <select
-                                  value={product.size ?? sizes[0]}
-                                  onChange={(e) => patchProduct(index, { size: e.target.value })}
-                                  className="mt-1 w-full rounded-xl border border-[#F1EEF3] bg-white px-3 py-2.5 text-sm font-semibold text-[#17152B]"
-                                >
-                                  {sizes.map((size) => (
-                                    <option key={size} value={size}>
-                                      {size}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-
-                  <p className="mt-4 text-xs font-medium text-[#68708A]">
-                    Used more than one size today? Add a separate entry for each size or absorbency.
+            {/* Row 1: Blood flow + Mood */}
+            <div className="grid w-full grid-cols-1 items-stretch gap-5 sm:gap-6 lg:grid-cols-2">
+              {/* Blood flow */}
+              <section
+                aria-labelledby={flowId}
+                className="relative flex min-h-[190px] w-full flex-col justify-between overflow-hidden rounded-[22px] p-5 text-white shadow-[0_8px_28px_rgba(23,21,43,0.08)] sm:p-6"
+                style={{ background: "linear-gradient(135deg, #FF5E62 0%, #E83A64 45%, #B81958 100%)" }}
+              >
+                <div className="z-10 space-y-1 text-left">
+                  <h3 id={flowId} className="block text-xs font-bold uppercase tracking-wider text-white/90">
+                    Blood flow
+                  </h3>
+                  <p className="text-2xl font-black leading-tight tracking-tight sm:text-3xl" aria-live="polite">
+                    {draft.flow ?? "Not logged"}
                   </p>
-                </section>
-              </div>
+                  {!draft.flow && <p className="text-xs font-medium text-white/80">Log your blood flow details</p>}
+                </div>
 
-              {/* ------------------------- RIGHT ------------------------ */}
-              <div className="w-full space-y-5">
-                {/* Mood */}
-                <section aria-labelledby={moodId} className={`${CARD} sm:p-6`}>
+                <div role="group" aria-labelledby={flowId} className="z-10 grid grid-cols-4 gap-2 pt-4 sm:gap-2.5">
+                  {[...FLOWS].sort((a, b) => flowRank(a) - flowRank(b)).map((flow) => {
+                    const selected = flow === draft.flow;
+                    return (
+                      <button
+                        key={flow}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => log.update("flow", selected ? null : flow)}
+                        className={`flex min-h-[52px] cursor-pointer flex-col items-center justify-center gap-1 rounded-full px-1 text-xs font-bold transition-all duration-200 ${
+                          selected ? "bg-white text-[#A3155A] shadow-md" : "bg-white/20 text-white hover:bg-white/30"
+                        }`}
+                      >
+                        <span className="flex h-4 items-center justify-center" aria-hidden="true">
+                          <FlowIcon flow={flow} />
+                        </span>
+                        <span className="max-w-full truncate text-[0.72rem] sm:text-xs">{flow}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -bottom-10 -right-10 h-36 w-36 rounded-full bg-white/10 blur-xl"
+                />
+              </section>
+
+              {/* Mood */}
+              <section
+                aria-labelledby={moodId}
+                className={`${CARD} flex min-h-[190px] flex-col justify-between sm:p-6`}
+              >
+                <div className="space-y-0.5">
                   <h3 id={moodId} className="text-base font-bold tracking-tight text-[#17152B]">
                     Mood
                   </h3>
@@ -491,35 +380,69 @@ export function MenstrualDailyLog({
                     Select how you feel today
                     <Info className="h-3.5 w-3.5 text-[#8A92A6]" aria-hidden="true" />
                   </p>
-                  <div role="group" aria-labelledby={moodId} className="grid grid-cols-5 gap-1.5 pt-3 sm:gap-2.5">
-                    {MOODS.map((mood) => {
-                      const selected = mood === draft.mood;
-                      return (
-                        <button
-                          key={mood}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() => log.update("mood", selected ? null : mood)}
-                          className={`flex min-h-[76px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl px-0.5 py-2 transition-all duration-200 ${
-                            selected
-                              ? "border-2 border-[#F43F8F] bg-[#FFF0F6]"
-                              : "border border-[#F1EEF3] bg-white hover:border-pink-200 hover:bg-pink-50/50"
+                </div>
+                <div role="group" aria-labelledby={moodId} className="grid grid-cols-5 gap-1.5 pt-3 sm:gap-2.5">
+                  {MOODS.map((mood) => {
+                    const selected = mood === draft.mood;
+                    return (
+                      <button
+                        key={mood}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => log.update("mood", selected ? null : mood)}
+                        className={`flex min-h-[76px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl px-0.5 py-2 transition-all duration-200 ${
+                          selected
+                            ? "border-2 border-[#F43F8F] bg-[#FFF0F6]"
+                            : "border border-[#F1EEF3] bg-white hover:border-pink-200 hover:bg-pink-50/50"
+                        }`}
+                      >
+                        <img
+                          src={MOOD_IMAGES[mood]}
+                          alt=""
+                          className="h-10 w-10 shrink-0 rounded-full border border-pink-100 object-cover object-top sm:h-11 sm:w-11"
+                        />
+                        <span
+                          className={`text-[0.68rem] tracking-tight sm:text-xs ${
+                            selected ? "font-bold text-[#F43F8F]" : "font-medium text-[#68708A]"
                           }`}
                         >
-                          <MoodFace value={mood} />
-                          <span
-                            className={`text-[0.68rem] tracking-tight sm:text-xs ${
-                              selected ? "font-bold text-[#F43F8F]" : "font-medium text-[#68708A]"
-                            }`}
-                          >
-                            {mood}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
+                          {mood}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
 
+            {/* Symptoms: full width, right under the Blood flow + Mood row */}
+            <SymptomTracking
+              options={MENSTRUAL_SYMPTOMS}
+              phaseLabel="Menstrual Phase symptoms"
+              symptoms={draft.symptoms}
+              other={draft.customSymptom ?? ""}
+              severity={draft.painScore}
+              disclaimer={symptomExtra.disclaimer}
+              notices={symptomExtra.notices}
+              onSymptoms={(next) => log.update("symptoms", next as SymptomKey[])}
+              onOther={(text) => log.update("customSymptom", text)}
+              onSeverity={(n) => log.update("painScore", n)}
+            />
+
+            {/* Row 2: Products used | colour, cramps, clots, energy, medication */}
+            <div className="grid w-full grid-cols-1 items-stretch gap-5 sm:gap-6 lg:grid-cols-2">
+              <div className="relative h-[216px] w-full lg:h-auto">
+                <ProductsUsedCard
+                  products={products}
+                  onPatch={patchProduct}
+                  onRemove={removeProduct}
+                  onOpenAdd={() => setAddingProduct(true)}
+                />
+                {/* Fills the empty space under Products; hides itself once products fill it */}
+                
+              </div>
+
+              <div className="w-full space-y-5 sm:space-y-6">
                 {/* Blood colour */}
                 <section aria-labelledby={colorId} className={`${CARD} space-y-3`}>
                   <h3 id={colorId} className={LABEL}>
@@ -631,8 +554,8 @@ export function MenstrualDailyLog({
                   </section>
                 </div>
 
-                {/* Energy + medication */}
-                <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+                {/* Energy + Medication */}
+                <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
                   <section aria-labelledby={energyId} className={`${CARD} space-y-3`}>
                     <div className="flex items-center gap-2.5">
                       <div
@@ -643,7 +566,7 @@ export function MenstrualDailyLog({
                       </div>
                       <div>
                         <h3 id={energyId} className="text-xs font-bold leading-tight text-[#17152B] sm:text-sm">
-                          Energy level
+                          Energy Level
                         </h3>
                         <p className="text-[0.7rem] font-medium leading-tight text-[#68708A]">Daily vitality rating</p>
                       </div>
@@ -658,19 +581,31 @@ export function MenstrualDailyLog({
                     />
                   </section>
 
-                  <MedicationSection
-                    variant="menstrual"
-                    medications={log.medications}
-                    date={log.selectedDate}
-                    onStatusChange={log.setMedStatus}
-                    onAdd={log.addMed}
-                    onRemove={log.removeMed}
-                  />
+                  <div className="relative min-h-[18rem] min-w-0 sm:min-h-0">
+  <MedicationSection
+    variant="menstrual"
+    medications={log.medications}
+    date={log.selectedDate}
+    onStatusChange={log.setMedStatus}
+    onAdd={log.addMed}
+    onRemove={log.removeMed}
+  />
+</div>
                 </div>
 
                 {log.medError && <InfoCard live>{log.medError}</InfoCard>}
               </div>
             </div>
+
+            {/* Intercourse: the last card, right above Save */}
+            <IntercourseSection
+              intercourse={draft.intercourse}
+              protection={draft.protection ?? null}
+              details={draft.notes ?? ""}
+              onIntercourse={(v) => log.update("intercourse", v)}
+              onProtection={(v) => log.update("protection", v)}
+              onDetails={(v) => log.update("notes", v === "" ? null : v)}
+            />
 
             {/* Save */}
             <SaveLogBar
@@ -680,9 +615,16 @@ export function MenstrualDailyLog({
               noChanges={log.noChanges}
               status={log.status}
             />
-          </>
+          </fieldset>
         )}
       </div>
+
+      {addingProduct && (
+        <AddProductModal
+          onClose={() => setAddingProduct(false)}
+          onAdd={(p) => log.update("products", mergeProducts([...products, p]))}
+        />
+      )}
     </div>
   );
 }

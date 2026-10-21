@@ -1,5 +1,5 @@
 import { Check, Clock, Flame, Footprints, Zap } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { STEP_GOALS } from './constants';
 import { Emoji } from '../ui/Emoji';
 import { ProgressRing } from '../../ProgressRing';
@@ -16,8 +16,11 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 export function DailyActivitySection({ steps, goal, onStepsChange, onGoalChange }: DailyActivitySectionProps) {
   const percent = Math.min(100, Math.round((steps / goal) * 100));
   const reached = steps >= goal;
-  const calories = Math.round(steps * 0.04);
-  const activeMinutes = Math.round(steps / 125);
+  // TEMP: defaults are estimated from steps. Typed values stay in local state only (not saved) until backend fields exist.
+  const [calText, setCalText] = useState<string | null>(null);
+  const [minText, setMinText] = useState<string | null>(null);
+  const calories = calText ?? String(Math.round(steps * 0.04));
+  const activeMinutes = minText ?? String(Math.round(steps / 125));
 
   return (
     <section className="lu-card flex min-w-0 flex-col gap-[clamp(12px,1.1vw,18px)] p-lu-card">
@@ -45,7 +48,7 @@ export function DailyActivitySection({ steps, goal, onStepsChange, onGoalChange 
             <span className="mt-1 text-lu-title font-bold text-lu-ink">{fmt(steps)}</span>
             <span className="text-lu-caption uppercase tracking-[0.1em] text-lu-ink-faint">Steps</span>
             <span className="mt-0.5 whitespace-nowrap text-lu-micro text-lu-ink-muted">
-              {fmt(steps)} / {fmt(goal)} · {percent}%
+              of {fmt(goal)} goal
             </span>
           </ProgressRing>
         </div>
@@ -100,25 +103,34 @@ export function DailyActivitySection({ steps, goal, onStepsChange, onGoalChange 
       </p>
 
       <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
-        <Stat icon={<Flame className="h-4 w-4" />} iconClass="border-[#FED7AA] text-[#F97316]" label="Calories burned" value={fmt(calories)} unit="kcal" />
-        <Stat icon={<Clock className="h-4 w-4" />} iconClass="border-[#DDD6FE] text-[#8B5CF6]" label="Active time" value={String(activeMinutes)} unit="min" />
+        <Stat icon={<Flame className="h-4 w-4" />} iconClass="border-[#FED7AA] text-[#F97316]" label="Calories burned" value={calories} unit="kcal" onChange={setCalText} />
+        <Stat icon={<Clock className="h-4 w-4" />} iconClass="border-[#DDD6FE] text-[#8B5CF6]" label="Active time" value={activeMinutes} unit="min" onChange={setMinText} />
       </div>
     </section>
   );
 }
 
-function Stat({ icon, iconClass, label, value, unit }: { icon: ReactNode; iconClass: string; label: string; value: string; unit: string }) {
+function Stat({ icon, iconClass, label, value, unit, onChange }: { icon: ReactNode; iconClass: string; label: string; value: string; unit: string; onChange: (v: string | null) => void }) {
   return (
-    <div className="flex items-center gap-3 rounded-[14px] border border-lu-line bg-white px-4 py-3">
+    <label className="flex items-center gap-3 rounded-[14px] border border-lu-line bg-white px-4 py-3 focus-within:border-lu-brand">
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${iconClass}`} aria-hidden="true">
         {icon}
       </span>
-      <div className="min-w-0">
-        <p className="text-lu-caption uppercase leading-tight tracking-[0.06em] text-lu-ink-faint">{label}</p>
-        <p className="text-lu-body font-semibold text-lu-ink">
-          {value} <span className="text-lu-caption font-normal text-lu-ink-muted">{unit}</span>
-        </p>
-      </div>
-    </div>
+      <span className="min-w-0">
+        <span className="block text-lu-caption uppercase leading-tight tracking-[0.06em] text-lu-ink-faint">{label}</span>
+        <span className="flex items-baseline gap-1">
+          <input
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={value}
+            onChange={(e) => onChange(e.target.value.replace('-', ''))}
+            onBlur={() => value === '' && onChange(null)}
+            className="w-[clamp(56px,6vw,84px)] min-w-0 bg-transparent text-lu-body font-semibold text-lu-ink outline-none"
+          />
+          <span className="text-lu-caption font-normal text-lu-ink-muted">{unit}</span>
+        </span>
+      </span>
+    </label>
   );
 }

@@ -72,7 +72,7 @@ function LogForm({ day, initial, phase, onSaved }: { day: string; initial: Daily
   };
 
   return (
-    <div className="grid gap-5" key={version}>
+    <div className="grid gap-[clamp(1rem,2vw,1.6rem)]" key={version}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-body text-ink-muted">
           {phase !== "unknown" ? `${PHASE_NAME[phase]} · showing the fields that matter most.` : "Log what you noticed today."}
@@ -214,7 +214,7 @@ export function DailyLogPage({ initialDay, onDayChange, onBack, onOpenCalendar }
       <p className="text-micro font-bold uppercase tracking-[0.16em] text-rose-ink">Daily log</p>
       <h1 className="mt-1 text-headline font-bold tracking-[-0.02em] text-ink">{longDate(day)}</h1>
 
-      <div className={`${card} mt-5 mb-5`}>
+      <div className={`${card} my-[clamp(1rem,2vw,1.6rem)]`}>
         <div role="group" aria-label="Pick a day" className="flex gap-2 overflow-x-auto pb-1">
           {strip.map((d) => (
             <button

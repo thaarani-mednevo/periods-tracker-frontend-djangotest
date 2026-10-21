@@ -1,0 +1,114 @@
+/* Medication History reference theme — scoped through mh-* tokens so it does not alter the rest of Mednevo. */
+@theme {
+  --breakpoint-desk: 73.75rem;
+
+  --color-mh-brand: #f439a8;
+  --color-mh-brand-from: #ff78be;
+  --color-mh-brand-to: #ce35a8;
+  --color-mh-navy: #181a40;
+  --color-mh-ink: #1d1b28;
+  --color-mh-muted: #6b6b7a;
+  --color-mh-faint: #959298;
+  --color-mh-blush: #ffe7f4;
+  --color-mh-line: #efe9f1;
+  --color-mh-violet: #8b5cf6;
+  --color-mh-ok: #16a34a;
+  --color-mh-ok-ink: #15803d;
+  --color-mh-ok-dark: #095d41;
+  --color-mh-danger: #e0393e;
+  --color-mh-slate-icon: #5b6b87;
+
+  --text-mh-title: clamp(1.875rem, 1.554rem + 1.607vw, 3.5rem);
+  --text-mh-title--line-height: 1.21;
+  --text-mh-heading: clamp(1.5rem, 1.339rem + 0.804vw, 2.25rem);
+  --text-mh-heading--line-height: 1.22;
+  --text-mh-lead: clamp(0.875rem, 0.804rem + 0.357vw, 1.25rem);
+  --text-mh-lead--line-height: 1.33;
+  --text-mh-eyebrow: clamp(0.8125rem, 0.705rem + 0.536vw, 1.4rem);
+  --text-mh-eyebrow--line-height: 1.05;
+  --text-mh-pname: clamp(1.0625rem, 1.018rem + 0.223vw, 1.4rem);
+  --text-mh-pname--line-height: 1.23;
+  --text-mh-name: 0.9375rem;
+  --text-mh-name--line-height: 1.29;
+  --text-mh-body: 0.875rem;
+  --text-mh-body--line-height: 1.44;
+  --text-mh-body-sm: 0.8125rem;
+  --text-mh-body-sm--line-height: 1.4;
+  --text-mh-ui: 0.875rem;
+  --text-mh-ui--line-height: 1.27;
+  --text-mh-ui-sm: 0.8125rem;
+  --text-mh-ui-sm--line-height: 1.3;
+  --text-mh-ui-xs: 0.8125rem;
+  --text-mh-ui-xs--line-height: 1.3;
+  --text-mh-ui-fit: 0.8125rem;
+  --text-mh-ui-fit--line-height: 1.27;
+  --text-mh-num: 1.5rem;
+  --text-mh-num--line-height: 1.04;
+  --text-mh-caption: 0.75rem;
+  --text-mh-caption--line-height: 1.33;
+  --text-mh-micro-lg: 0.75rem;
+  --text-mh-micro-lg--line-height: 1.5;
+  --text-mh-micro: 0.72rem;
+  --text-mh-micro--line-height: 1.5;
+  --text-mh-nano: 0.65625rem;
+  --text-mh-nano--line-height: 1;
+  --text-mh-insight: 1rem;
+  --text-mh-insight--line-height: 1.49;
+  --text-mh-m-title: 1.125rem;
+  --text-mh-m-title--line-height: 1.2;
+  --text-mh-m-sub: 0.875rem;
+  --text-mh-m-sub--line-height: 1.29;
+  --text-mh-m-section: 1rem;
+  --text-mh-m-section--line-height: 1.35;
+  --text-mh-m-label: 0.8125rem;
+  --text-mh-m-label--line-height: 1.43;
+  --text-mh-m-input: 0.875rem;
+  --text-mh-m-input--line-height: 1.3;
+  --text-mh-m-note: 0.75rem;
+  --text-mh-m-note--line-height: 1.3;
+  --text-mh-m-micro: 0.75rem;
+  --text-mh-m-micro--line-height: 1.4;
+  --text-mh-m-num: 0.75rem;
+  --text-mh-m-num--line-height: 1;
+  --text-mh-m-btn: 0.875rem;
+  --text-mh-m-btn--line-height: 1.2;
+}
+
+@media (min-width: 1180px) {
+  :root {
+    --text-mh-name: clamp(0.875rem, 0.9722vw, 1.09rem);
+    --text-mh-body: clamp(0.78125rem, 0.868vw, 0.98rem);
+    --text-mh-body-sm: clamp(0.7125rem, 0.7917vw, 0.89rem);
+    --text-mh-ui: clamp(0.6875rem, 0.7639vw, 0.86rem);
+    --text-mh-ui-sm: clamp(0.65625rem, 0.7292vw, 0.82rem);
+    --text-mh-ui-xs: clamp(0.625rem, 0.6944vw, 0.78rem);
+    --text-mh-ui-fit: clamp(0.6875rem, 0.7639vw, 0.86rem);
+    --text-mh-num: clamp(1.4375rem, 1.597vw, 1.8rem);
+    --text-mh-caption: clamp(0.5625rem, 0.625vw, 0.7rem);
+    --text-mh-micro-lg: clamp(0.53rem, 0.5903vw, 0.66rem);
+    --text-mh-micro: clamp(0.5rem, 0.5556vw, 0.625rem);
+    --text-mh-nano: clamp(0.4625rem, 0.5139vw, 0.58rem);
+    --text-mh-insight: clamp(0.906rem, 1.007vw, 1.13rem);
+  }
+}
+
+@utility mh-tap {
+  @media (pointer: coarse), (max-width: 1179px) {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+}
+
+@utility mh-card-shadow {
+  box-shadow: 0 10px 28px -14px rgb(60 30 70 / 0.16);
+}
+
+.medication-history-root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.medication-history-root {
+  --gutter: clamp(1rem, 0.584rem + 2.081vw, 2.4375rem);
+  --space-md: clamp(0.75rem, 0.5rem + 0.8vw, 1.25rem);
+  --space-sm: clamp(0.625rem, 0.45rem + 0.6vw, 0.9375rem);
+}

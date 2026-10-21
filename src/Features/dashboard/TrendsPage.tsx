@@ -10,6 +10,7 @@ export function TrendsPage({
   onOpenOverview,
   onOpenCalendar,
   onOpenDailyLog,
+  onOpenMedicationHistory,
   onOpenSettings,
   day,
 }: {
@@ -18,6 +19,7 @@ export function TrendsPage({
   onOpenOverview: () => void;
   onOpenCalendar: () => void;
   onOpenDailyLog: () => void;
+  onOpenMedicationHistory: () => void;
   onOpenSettings: () => void;
   day?: string;
 }) {
@@ -34,6 +36,7 @@ export function TrendsPage({
             if (tab === "overview") onOpenOverview();
             else if (tab === "calendar") onOpenCalendar();
             else if (tab === "daily-log") onOpenDailyLog();
+            else if (tab === "medication-history") onOpenMedicationHistory();
             else if (tab === "settings") onOpenSettings();
           }}
         />
@@ -48,7 +51,7 @@ export function TrendsPage({
           </button>
         </InfoCard>
       )}
-      {cycle.status === "ready" && cycle.data && <InsightsPage state={cycle.data} day={day} />}
+      {cycle.status === "ready" && cycle.data && <InsightsPage state={cycle.data} day={day} profileWeightKg={data.weight} />}
     </div>
   );
 }

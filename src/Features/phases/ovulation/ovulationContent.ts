@@ -2,13 +2,16 @@ import { Apple, Dumbbell, Leaf, type LucideIcon } from "lucide-react";
 
 /** Static educational copy only. Dates, logged values and AI text always come from the backend. */
 export const OVULATION_COPY = {
-  heading: "You're likely ovulating around now",
+  heading: "You are currently in your ovulation phase!",
   description:
-    "This is your estimated ovulation window. Estrogen is typically higher around ovulation and you may feel more energetic. Timing is an estimate and can shift from cycle to cycle.",
+    "Your body is at its most fertile right now. You may feel more energetic and notice positive changes in your mood.",
+  heroHeading: "You're in your ovulation phase",
+  heroDescription:
+    "Your body is at its most fertile right now. Estrogen is high, and you may notice clearer cervical mucus, a rise in basal body temperature and increased energy.",
   encouragement: "You're doing great!",
   hormones: "Estrogen is typically higher around ovulation, while progesterone begins to rise afterward.",
-  energyNote: "Many people feel more energetic around ovulation.",
-  moodNote: "Many people feel more confident and sociable around ovulation.",
+  energyNote: "You may feel more energetic today.",
+  moodNote: "You may feel more confident and sociable today.",
 };
 
 export const FERTILITY_COPY = {
@@ -47,7 +50,7 @@ export const WELLNESS_GROUPS: { id: string; title: string; icon: LucideIcon; ton
     icon: Dumbbell,
     tone: "bg-[#E0F3FF] text-[#007CDA]",
     check: "text-[#F0076F]",
-    items: ["Try light to moderate exercise", "Walking, yoga or strength training", "Enjoy outdoor activities", "Listen to your body"],
+    items: ["Try light to moderate exercise", "Walking, yoga or strength training", "Enjoy outdoor activities", "Listen to your body and avoid overexertion"],
   },
   {
     id: "wellness",
@@ -55,6 +58,6 @@ export const WELLNESS_GROUPS: { id: string; title: string; icon: LucideIcon; ton
     icon: Leaf,
     tone: "bg-[#DCF9E5] text-[#00983B]",
     check: "text-[#009A3C]",
-    items: ["Get enough sleep", "Manage stress with relaxation", "Take time for self-care", "Stay connected with loved ones"],
+    items: ["Get enough sleep", "Manage stress with relaxation techniques", "Take time for self-care", "Stay connected with loved ones"],
   },
 ];

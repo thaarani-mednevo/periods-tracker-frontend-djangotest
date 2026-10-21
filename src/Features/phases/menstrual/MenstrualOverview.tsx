@@ -1,236 +1,234 @@
+import { Activity, Calendar, Droplet, Droplets, Heart, Sparkles, Users } from "lucide-react";
 import { useCallback, useState } from "react";
-import { Icon3D } from "../../../Elements/icon3D/Icon3D";
-import { InfoCard } from "../../../Elements/infoCard/InfoCard";
-import illustration from "../../../assets/phases/menstrual-illustration.webp";
 import { useAsync } from "../../../hooks/useAsync";
 import { useCycleHistory } from "../../../hooks/useCycleHistory";
-import { addDays } from "../../../lib/isoDate";
 import { getPhaseInsight } from "../../../services/insights";
 import { localISODate } from "../../../services/cycle";
-import { getDailyLog, getMedicationHistory, SYMPTOMS } from "../../../services/logs";
+import { getDailyLog, SYMPTOMS } from "../../../services/logs";
+import { InfoCard } from "../../../Elements/infoCard/InfoCard";
+import nextPeriodImg from "../../../assets/phases/menstrual/3d/Kawaii Period Tracking Calendar.png";
+import periodImg from "../../../assets/phases/menstrual/3d/periods tracker1.png";
+import regularityImg from "../../../assets/phases/menstrual/3d/ai-prediction-3d.webp";
+import crampsImg from "../../../assets/phases/menstrual/3d/cramps level1.png";
+import flowImg from "../../../assets/phases/menstrual/3d/Glossy Kawaii Droplet Trio.png";
+import symptomsImg from "../../../assets/phases/menstrual/3d/symptoms-3d.webp";
+import intercourseImg from "../../../assets/phases/menstrual/3d/intercourse.png";
+
 import { fmtDate } from "../../dashboard/phases";
-import { MetricCard, type MetricCardProps } from "../luteal/components/MetricCard";
-import { AIRecommendation, CycleStatusCard, MedicationHistory } from "../luteal/components/OverviewSections";
-import { CONFIDENCE_LABEL, days, span } from "../shared";
-import { Emoji } from "../shared/ui/Emoji";
-import type { PhaseViewProps } from "../types";
-import { MENSTRUAL_COPY, WELLNESS } from "./menstrualContent";
+import { days, span, predictionCopy } from "../shared";
 import { PhaseTipsModal } from "../shared/ui/PhaseTipsModal";
+import type { PhaseViewProps } from "../types";
+import { MenstrualAIRecommendation } from "./components/MenstrualAIRecommendation";
+import { MenstrualCycleInsights } from "./components/MenstrualCycleInsights";
+import { MenstrualHeroCard } from "./components/MenstrualHeroCard";
+import { MenstrualMetricCard, type MetricCardProps } from "./components/MenstrualMetricCard";
+import { MenstrualPreviousCycles } from "./components/MenstrualPreviousCycles";
+import { MenstrualStatusCard } from "./components/MenstrualStatusCard";
+import { MenstrualWellnessCards, type WellnessCard } from "./components/MenstrualWellnessCards";
+import { MedicationScoreCard } from "../luteal/components/OverviewSections";
+import { Visual3DCalendar, Visual3DUterusQuestion } from "./components/VisualAssets3D";
+import { MENSTRUAL_COPY, WELLNESS } from "./menstrualContent";
 
-
-const card = "lu-card p-lu-card";
-const emojiSize = "text-[clamp(36px,3vw,52px)]";
+const ICON = "size-4 text-[#F43F8F]";
 const NOT_LOGGED = "Not logged";
-const TAP_TO_LOG = "Tap the arrow to log today";
+const IMG = "max-h-full max-w-full h-auto w-auto select-none object-contain drop-shadow-xs";
+
+
+
+/** Plain-language notes shown under the logged value. */
+const CRAMPS_NOTE: Record<string, string> = {
+  None: "Great, no pain logged",
+  Mild: "A little discomfort",
+  Moderate: "Noticeable pain, rest if you can",
+  Severe: "Strong pain, take extra rest",
+};
+const FLOW_NOTE: Record<string, string> = {
+  Spotting: "Very light bleeding",
+  Light: "Light bleeding",
+  Medium: "Normal bleeding",
+  Heavy: "Heavy bleeding",
+};
+
+const card3d = (src: string, box: string) => (
+  <span className={`flex items-center justify-center ${box}`}>
+    <img src={src} alt="" loading="lazy" className={IMG} />
+  </span>
+);
+
+/** Icon + check colours per wellness card (same order as WELLNESS). */
+const WELLNESS_TONE = [
+  { iconClass: "text-[#F43F8F]", checkClass: "text-[#F43F8F]" },
+  { iconClass: "text-[#3B82F6]", checkClass: "text-[#3B82F6]" },
+  { iconClass: "text-[#16A34A]", checkClass: "text-[#16A34A]" },
+];
+const wellnessCards: WellnessCard[] = WELLNESS.map((w, i) => ({ ...w, ...WELLNESS_TONE[i % WELLNESS_TONE.length] }));
 
 export function MenstrualOverview({ state, onLogPeriod, onAskAva, onOpenTrends, onOpenDailyLog }: PhaseViewProps) {
   const [tipsOpen, setTipsOpen] = useState(false);
   const history = useCycleHistory();
   const day = state.date;
   const isToday = day === localISODate();
-  const tapToLog = isToday ? TAP_TO_LOG : "Tap the arrow to log this day";
+  const dayWord = isToday ? "today" : "this day";
 
   const loadLog = useCallback((s: AbortSignal) => getDailyLog(day, s), [day]);
-  const loadMeds = useCallback((s: AbortSignal) => getMedicationHistory(addDays(day, -60), day, s), [day]);
   const log = useAsync(loadLog).data;
-  const meds = useAsync(loadMeds).data?.intakes.slice(0, 4) ?? [];
   const loadInsight = useCallback((signal: AbortSignal) => getPhaseInsight(day, signal), [day]);
   const insight = useAsync(loadInsight);
 
   const { cycleProfile: profile, nextPeriod: next, period } = state;
-  const cycleLength = profile.medianCycleLength;
   const periodLength = profile.typicalPeriodLength;
   const completed = (history.data ?? []).filter((p) => p.cycleLength !== null);
   const openLog = onOpenDailyLog ?? (() => {});
+  const hasCycleData = state.cycleDay != null;
 
-  // Ring = one segment per period day (5 if the user said 5 days). Red once the period is actually logged;
-  // soft pink while it is only a prediction.
-  const logged = period?.startType === "observed";
-  const ringSegments = Math.max(1, Math.round(periodLength ?? 5));
-  const ringLength = ringSegments;
-
+  // Non-breaking spaces keep the date range on one line
+  const nextRange = next ? span(next.rangeStart, next.rangeEnd)?.replace(/ /g, "\u00A0") : null;
   const nextNote = !next
-    ? "Not enough data yet"
-    : [state.isOverdue ? `${days(state.overdueDays)} later than predicted` : `in ${days(state.daysUntilNextPeriod ?? 0)}`, span(next.rangeStart, next.rangeEnd)]
+    ? "Log your period to see when the next one may start."
+    : [
+        state.isOverdue ? `Running ${days(state.overdueDays)} late` : `In about ${days(state.daysUntilNextPeriod ?? 0)}`,
+        nextRange ? `Could start between ${nextRange}` : null,
+      ]
         .filter(Boolean)
-        .join(" · ");
+        .join("\n");
 
   const symptomLabels = (log?.symptoms ?? []).map((id) => SYMPTOMS.find((s) => s.id === id)?.label ?? id);
   const clots = log?.clotsPresent ? (log.clotSize ? `${log.clotSize} clots` : "Clots present") : log?.clotsPresent === false ? "No clots" : null;
+  const intercourse = log?.intercourse === true ? "Yes" : log?.intercourse === false ? "No" : NOT_LOGGED;
 
-  const metrics: (MetricCardProps & { onOpen: () => void })[] = [
+  const metrics: (MetricCardProps & { key: string })[] = [
     {
+      key: "period",
       label: "Period Tracker",
-      value: `Day ${state.cycleDay ?? "–"}${periodLength ? ` of ~${Math.round(periodLength)}` : ""}`,
-      description: period ? `${period.type === "observed" ? "Ended" : "Expected to end"} ${fmtDate(period.end)}` : "Not enough data yet",
-      accent: "bg-[#FCE7F3] text-[#DB2777]",
-      visual: <Emoji symbol="🩸" label="Period" className={emojiSize} />,
+      value: hasCycleData ? `Day ${state.cycleDay}` : NOT_LOGGED,
+      description: period
+        ? [
+            `${period.type === "observed" ? "Ended" : "Ends"} ${fmtDate(period.end)}`,
+            periodLength ? `Lasts ~${Math.round(periodLength)} days` : null,
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : "Log your period to see how many days it has lasted.",
+      icon: <Droplet className={ICON} />,
+      visual: card3d(periodImg, "h-[84px] w-[110px] sm:h-[96px] sm:w-[140px]"),
+      chevron: true,
       onOpen: openLog,
     },
     {
+      key: "cramps",
       label: "Cramps Level",
-      value: log?.cramps ?? NOT_LOGGED,
-      description: log?.cramps ? "How your cramps felt" : tapToLog,
-      accent: "bg-[#FEF9C3] text-[#CA8A04]",
-      visual: <Emoji symbol="😣" label="Cramps" className={`${emojiSize} ${log?.cramps ? "" : "opacity-40"}`} />,
+      value: log?.cramps === "None" ? "No cramps" : (log?.cramps ?? NOT_LOGGED),
+      description: log?.cramps ? (CRAMPS_NOTE[log.cramps] ?? `Logged ${dayWord}`) : `Tap to log your cramps ${dayWord}.`,
+      icon: <Activity className={ICON} />,
+      visual: card3d(crampsImg, "h-[88px] w-[90px] sm:h-[100px] sm:w-[120px]"),
       onOpen: openLog,
     },
     {
+      key: "flow",
       label: "Blood Flow",
       value: log?.flow ?? NOT_LOGGED,
-      description: clots ?? (log?.flow ? "Clots not logged" : TAP_TO_LOG),
-      accent: "bg-[#FFE4E6] text-[#E11D48]",
-      visual: <Emoji symbol="💧" label="Flow" className={`${emojiSize} ${log?.flow ? "" : "opacity-40"}`} />,
+      description: log?.flow ? [FLOW_NOTE[log.flow], clots].filter(Boolean).join("\n") : "Tap to log how heavy your flow is.",
+      icon: <Droplets className={ICON} />,
+      visual: card3d(flowImg, "h-[80px] w-[80px] sm:h-[96px] sm:w-[96px]"),
       onOpen: openLog,
     },
     {
+      key: "symptoms",
       label: "Symptoms",
-      value: symptomLabels.length ? `${symptomLabels.length} logged` : NOT_LOGGED,
-      description: symptomLabels.join(", ") || TAP_TO_LOG,
-      accent: "bg-[#EDE9FE] text-[#6D28D9]",
-      visual: <Emoji symbol="📝" label="Symptoms" className={`${emojiSize} ${symptomLabels.length ? "" : "opacity-40"}`} />,
+      value: symptomLabels.length ? `${symptomLabels.length} ${symptomLabels.length === 1 ? "symptom" : "Symptoms"}` : NOT_LOGGED,
+      description: symptomLabels.join(", ") || "Tap to log how you feel (cramps, tiredness, etc.).",
+      icon: <Users className="size-4 text-[#8B5CF6]" />,
+      iconClass: "bg-[#F3EEFF]",
+      tone: "purple",
+      visual: card3d(symptomsImg, "h-[88px] w-[88px] sm:h-[104px] sm:w-[104px]"),
       onOpen: openLog,
     },
     {
+      key: "intercourse",
+      label: "Intercourse",
+      value: intercourse,
+      description: log?.intercourse != null ? (isToday ? "Logged for today" : `Logged for ${fmtDate(day)}`) : "Tap to log if you had intercourse.",
+      icon: <Heart className={ICON} />,
+      visual: card3d(intercourseImg, "h-[80px] w-[88px] sm:h-[96px] sm:w-[104px]"),
+      onOpen: openLog,
+    },
+    {
+      key: "next",
       label: "Next Period",
-      value: next ? fmtDate(next.date) : "—",
+      value: next ? fmtDate(next.date) : "Not available",
       description: nextNote,
-      accent: "bg-[#E0F2FE] text-[#0284C7]",
-      visual: <Emoji symbol="📅" label="Next period" className={emojiSize} />,
+      icon: <Calendar className={ICON} />,
+      visual: (
+        <span className="flex h-[72px] w-[86px] items-center justify-center sm:h-[84px] sm:w-[104px] lg:h-[88px] lg:w-[108px]">
+          <img src={nextPeriodImg} alt="" width={128} height={104} loading="lazy" className={IMG} />
+        </span>
+      ),
       onOpen: onOpenTrends,
     },
     {
-      label: "Prediction",
-      value: CONFIDENCE_LABEL[state.confidence.level],
-      description: [
-        cycleLength ? `~${Math.round(cycleLength)}-day cycle` : null,
-        profile.variability != null
-          ? `±${profile.variability} days · ${profile.sampleSize} ${profile.sampleSize === 1 ? "cycle" : "cycles"} logged`
-          : "from the length you entered",
-      ]
-        .filter(Boolean)
-        .join(" · "),
-      accent: "bg-[#F3E8FF] text-[#7E22CE]",
-      visual: <Emoji symbol="✨" label="Prediction" className={emojiSize} />,
+      key: "prediction",
+      label: "How we estimate",
+      eyebrow: true,
+      tone: "purple",
+      value: next ? predictionCopy(state).title : "Not enough data yet",
+      description: next ? predictionCopy(state).note : "Log a few periods to unlock predictions.",
+      icon: <Sparkles className="size-4 text-[#8B5CF6]" />,
+      visual: next ? (
+        <span className="flex h-[72px] w-[88px] items-center justify-center sm:h-[80px] sm:w-[104px]">
+          <img src={regularityImg} alt="" width={104} height={80} loading="lazy" className={IMG} />
+        </span>
+      ) : (
+        <Visual3DUterusQuestion className="h-16 w-20 sm:h-20 sm:w-24" />
+      ),
       onOpen: onOpenTrends,
     },
   ];
-
+  const ORDER = ["next", "period", "cramps", "flow", "symptoms", "intercourse", "prediction"];
+  const ordered = ORDER.map((k) => metrics.find((m) => m.key === k)!);
   return (
-    <div className="flex flex-col gap-lu-grid">
-      <div className="grid grid-cols-1 gap-lu-grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <CycleStatusCard
-          title="Menstrual Phase"
-          cycleDay={state.cycleDay}
-          cycleLength={ringLength}
-          segments={ringSegments}
-          segmentColor={logged ? "#E5484D" : undefined}
-          segmentTrack={logged ? "#FADADD" : undefined}
-          hasInsight={insight.data?.status === "ready"}
+    <div className="flex w-full flex-col gap-4 sm:gap-5">
+      <div className="grid w-full grid-cols-1 items-stretch gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1.06fr)_minmax(0,2fr)] lg:[&>*]:min-h-[clamp(160px,14.7vw,230px)]!">
+  <MenstrualStatusCard cycleDay={state.cycleDay} periodLength={periodLength} hasInsight={insight.data?.status === "ready"} onAskAva={onAskAva} />
+        <MenstrualHeroCard
+          heading={MENSTRUAL_COPY.heading}
+          description={MENSTRUAL_COPY.description}
+          hasCycleData={hasCycleData}
+          onViewTips={() => setTipsOpen(true)}
+          onLogPeriod={onLogPeriod}
         />
-
-        <section className="lu-card relative flex items-center justify-between gap-4 overflow-hidden p-lu-card">
-          <div className="min-w-0 max-w-[560px]">
-            <h2 className="text-lu-heading font-semibold text-lu-ink">{MENSTRUAL_COPY.heading}</h2>
-            <p className="mt-2.5 text-lu-body text-lu-ink-muted">{MENSTRUAL_COPY.description}</p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={onLogPeriod}
-                className="rounded-full bg-lu-brand-soft px-[clamp(16px,1.4vw,22px)] py-2.5 text-lu-label font-medium text-lu-brand-strong transition-colors hover:bg-[#FBCFE8]"
-              >
-                Log period
-              </button>
-              <button
-                type="button"
-                onClick={() => setTipsOpen(true)}
-                aria-haspopup="dialog"
-                className="rounded-full bg-gradient-to-r from-[#EC4899] to-[#F472B6] px-[clamp(16px,1.4vw,22px)] py-2.5 text-lu-label font-medium text-white shadow-lu-glow transition-opacity hover:opacity-90"
-              >
-                View Period Tips
-              </button>
-            </div>
-          </div>
-          <img src={illustration} alt="" className="hidden w-[clamp(108px,9vw,150px)] shrink-0 object-contain sm:block" />
-        </section>
       </div>
 
-      <ul aria-label={isToday ? "Today at a glance" : `${fmtDate(day)} at a glance`} className="grid grid-cols-1 gap-lu-grid sm:grid-cols-2 xl:grid-cols-3">
-        {metrics.map((m) => (
-          <li key={m.label}>
-            <MetricCard {...m} />
+      <div aria-label={isToday ? "Today at a glance" : `${fmtDate(day)} at a glance`} role="group" className="w-full space-y-4 sm:space-y-5">
+        <ul className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
+          {ordered.slice(0, 4).map(({ key, ...m }) => (
+            <li key={key} className="flex">
+              <MenstrualMetricCard {...m} />
+            </li>
+          ))}
+        </ul>
+        <ul className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
+          {ordered.slice(4).map(({ key, ...m }) => (
+            <li key={key} className="flex">
+              <MenstrualMetricCard {...m} />
+            </li>
+          ))}
+          <li className="flex">
+            <MedicationScoreCard halo day={day} onOpen={openLog} />
           </li>
-        ))}
-      </ul>
+        </ul>
+      </div>
 
-      {tipsOpen && <PhaseTipsModal phaseLabel="Menstrual" day={day} onClose={() => setTipsOpen(false)} />}
+      <MenstrualCycleInsights energy={log?.energy ?? null} mood={log?.mood ?? null} hormones={state.hormones ?? null} periodLogged={log?.flow != null} />
 
-      <AIRecommendation insight={insight.data?.insight ?? null} loading={insight.status === "loading"} onAskAva={onAskAva} />
-      <MedicationHistory entries={meds} onViewAll={openLog} />
-
-      <section className={card} aria-labelledby="menstrual-previous">
-        <h2 id="menstrual-previous" className="text-lu-heading font-semibold text-lu-ink">Previous cycles</h2>
-        {history.status === "loading" && <p className="mt-4 text-lu-body text-lu-ink-muted">Loading…</p>}
-        {history.status === "error" && (
-          <InfoCard className="mt-4" live>
-            {history.error?.message ?? "Couldn't load your cycle history."}{" "}
-            <button type="button" onClick={history.refetch} className="font-semibold underline">
-              Try again
-            </button>
-          </InfoCard>
-        )}
-        {history.status === "ready" && completed.length === 0 && (
-          <InfoCard className="mt-4">Completed cycles show up here once you log your next period.</InfoCard>
-        )}
-        {history.status === "ready" && completed.length > 0 && (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full border-collapse text-left">
-              <caption className="sr-only">Completed cycles</caption>
-              <thead>
-                <tr className="border-b border-lu-line text-lu-caption text-lu-ink-muted">
-                  <th scope="col" className="pb-2.5 font-semibold">Cycle</th>
-                  <th scope="col" className="pb-2.5 font-semibold">Cycle length</th>
-                  <th scope="col" className="pb-2.5 font-semibold">Period length</th>
-                </tr>
-              </thead>
-              <tbody className="text-lu-label text-lu-ink">
-                {completed.map((p) => (
-                  <tr key={p.id} className="border-b border-lu-line last:border-0">
-                    <th scope="row" className="py-3 font-normal">
-                      {p.endDate ? span(p.startDate, p.endDate) || fmtDate(p.startDate) : fmtDate(p.startDate)}
-                    </th>
-                    <td className="py-3">{days(p.cycleLength ?? 0)}</td>
-                    <td className="py-3">{p.periodLength ? days(p.periodLength) : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <ul className="grid gap-lu-grid md:grid-cols-3" aria-label="Wellness tips">
-        {WELLNESS.map(({ icon, title, items }) => (
-          <li key={title} className={card}>
-            <div className="flex items-center gap-3">
-              <Icon3D icon={icon} size="sm" />
-              <h3 className="text-lu-body font-semibold text-lu-ink">{title}</h3>
-            </div>
-            <ul className="mt-4 grid gap-2 text-lu-label text-lu-ink-muted">
-              {items.map((item) => (
-                <li key={item} className="flex gap-2">
-                  <span aria-hidden="true" className="mt-[7px] size-1.5 shrink-0 rounded-full bg-lu-brand" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
+      <MenstrualAIRecommendation insight={insight.data?.insight ?? null} loading={insight.status === "loading"} onAskAva={onAskAva} />
+      <MenstrualWellnessCards cards={wellnessCards} />
+      <MenstrualPreviousCycles status={history.status} cycles={completed} errorMessage={history.error?.message} onRetry={history.refetch} />
 
       <InfoCard variant="disclaimer">
         Estimates are based on your logged cycles and are not a diagnosis or a method of contraception. General wellness information, not medical advice.
       </InfoCard>
+
+      {tipsOpen && <PhaseTipsModal phaseLabel="Menstrual" day={day} onClose={() => setTipsOpen(false)} />}
     </div>
   );
 }

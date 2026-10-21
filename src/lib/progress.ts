@@ -7,12 +7,14 @@ import {
   REGULARITY_OPTIONS,
   STEP_IDS,
   TOTAL_STEPS,
+  newMedication,
 } from "../constants";
 import type {
   BirthControlAnswer,
   BirthControlCategory,
   CycleLengthOption,
   FertilityGoal,
+  MedicationEntry,
   OnboardingData,
   PeriodRegularity,
   ReminderDays,
@@ -76,6 +78,22 @@ const bool = (v: unknown, fallback: boolean): boolean => (typeof v === "boolean"
 const num = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
 const strList = (v: unknown, fallback: string[]): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : fallback);
 
+/** Old drafts saved medications as plain names; new ones are full entries. Accept both. */
+function medEntry(v: unknown): MedicationEntry | undefined {
+  if (typeof v === "string") return v.trim() ? { ...newMedication(), name: v } : undefined;
+  if (!isRecord(v)) return undefined;
+  const blank = newMedication();
+  return {
+    name: str(v.name, ""),
+    dose: str(v.dose, blank.dose),
+    frequency: str(v.frequency, "") || blank.frequency,
+    times: strList(v.times, []),
+    startDate: str(v.startDate, ""),
+    endDate: str(v.endDate, ""),
+    tabletCount: num(v.tabletCount),
+  };
+}
+
 const REMINDER_DAYS: readonly ReminderDays[] = [1, 3, 5];
 const CYCLE_OPTIONS: readonly CycleLengthOption[] = ["", ...CYCLE_LENGTH_OPTIONS.map((o) => o.value)];
 const REGULARITY: readonly PeriodRegularity[] = ["", ...REGULARITY_OPTIONS.map((o) => o.value)];
@@ -91,7 +109,9 @@ const GOALS: readonly FertilityGoal[] = ["", ...FERTILITY_GOAL_OPTIONS.map((o) =
 function sanitizeData(saved: Json): OnboardingData {
   const d = INITIAL_DATA;
   const tracking = isRecord(saved.fertilityTracking) ? saved.fertilityTracking : {};
-  const medications = strList(saved.medications, d.medications);
+  const medications = Array.isArray(saved.medications)
+    ? saved.medications.map(medEntry).filter((m): m is MedicationEntry => m !== undefined)
+    : [];
   return {
     lastPeriod: str(saved.lastPeriod, d.lastPeriod),
     name: str(saved.name, d.name),
@@ -107,7 +127,7 @@ function sanitizeData(saved: Json): OnboardingData {
     medicalConditions: strList(saved.medicalConditions, d.medicalConditions),
     otherMedicalCondition: str(saved.otherMedicalCondition, d.otherMedicalCondition),
     takingMedication: typeof saved.takingMedication === "boolean" ? saved.takingMedication : null,
-    medications: medications.length ? medications : [""],
+    medications: medications.length ? medications : [newMedication()],
     symptoms: strList(saved.symptoms, d.symptoms),
     customSymptom: str(saved.customSymptom, d.customSymptom),
     moods: strList(saved.moods, d.moods),

@@ -19,10 +19,9 @@ export function BodyWeightSection({ value, onChange }: BodyWeightSectionProps) {
           min="0"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="min-w-0 bg-transparent text-lu-title font-bold text-lu-ink outline-none"
-          style={{ width: `${Math.max(value.length, 2) * 0.62}em` }}
+          className="min-w-0 flex-1 bg-transparent text-lu-title font-bold text-lu-ink outline-none"
         />
-        <span className="text-lu-label text-lu-ink-muted">kg</span>
+        <span className="shrink-0 pl-2 text-lu-label text-lu-ink-muted">kg</span>
       </label>
       <p className="mt-auto flex items-center gap-2 rounded-[clamp(10px,0.9vw,14px)] bg-lu-brand-soft/70 px-4 py-3 text-lu-caption text-lu-brand-strong">
         <Info className="h-4 w-4 shrink-0" aria-hidden="true" />

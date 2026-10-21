@@ -17,7 +17,13 @@ import { INITIAL_DATA } from "./constants";
 import { LoginPage, SignupPage } from "./Features/auth/AuthPages";
 import { clearAuth, getAuth, saveAuth } from "./lib/auth";
 import { logout, me, type AuthResult } from "./services/auth";
+import { clearCycleCache, withViewTransition } from "./hooks/useCycle";
 import { getProfile } from "./services/settings";
+import { MedicationHistoryPage } from "./Features/medicationHistory/MedicationHistoryPage";
+import { ManageJourneyReview } from "./Features/settings/manageJourney/ManageJourneyReview";
+import { MedicationHistoryLink } from "./Features/phases/shared/daily-log/MedicationSection";
+import { DoseReminderPopup } from "./Features/medicationHistory/DoseReminderPopup";
+import { RefillReminderPopup } from "./Features/medicationHistory/RefillReminderPopup";
 
 export type View =
   | { name: "welcome" }
@@ -27,6 +33,8 @@ export type View =
   | { name: "daily-log"; data: OnboardingData; day?: string }
   | { name: "calendar"; data: OnboardingData }
   | { name: "settings"; data: OnboardingData }
+  | { name: "manage-journey"; data: OnboardingData }
+  | { name: "medication-history"; data: OnboardingData; from?: "daily-log"; tab?: "upcoming" }
   | { name: "trends"; data: OnboardingData }
   | { name: "login" }
   | { name: "signup" };
@@ -47,21 +55,20 @@ export default function App() {
   const [selectedDay, setSelectedDay] = useState<string | undefined>(undefined);
 
   const open = useCallback((next: View, pushHistory = true) => {
-    setView(next);
     if (pushHistory && typeof window !== "undefined") {
       window.history.pushState(next, "");
     }
-    window.scrollTo({ top: 0 });
+    // Old and new page cross-fade. The scroll reset is in the same step, so the new page never shows at the old scroll position.
+    withViewTransition(() => {
+      setView(next);
+      window.scrollTo({ top: 0 });
+    });
   }, []);
 
   // Listen for browser Back and Forward navigation
   useEffect(() => {
     const onPopState = (e: PopStateEvent) => {
-      if (e.state && e.state.name) {
-        setView(e.state as View);
-      } else {
-        setView({ name: "welcome" });
-      }
+      withViewTransition(() => setView(e.state && e.state.name ? (e.state as View) : { name: "welcome" }));
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -70,6 +77,7 @@ export default function App() {
     // Token expire / invalid aana auto logout
   useEffect(() => {
     const onUnauthorized = () => {
+      clearCycleCache();
       setAuthState(null);
       setView({ name: "login" });
     };
@@ -93,6 +101,7 @@ export default function App() {
   }, [open]);
 
   const handleAuth = async (r: AuthResult) => {
+    clearCycleCache();
     saveAuth(r.token, r.user);
     setAuthState(getAuth());
     setProgress(loadProgress());
@@ -115,6 +124,7 @@ export default function App() {
       /* token already invalid */
     }
     clearAuth();
+    clearCycleCache();
     setAuthState(null);
     setProgress(null);
     setSelectedDay(undefined);
@@ -154,183 +164,255 @@ export default function App() {
     }
   }, []);
 
-    if (!auth) {
-    if (view.name === "signup")
-      return <SignupPage onAuth={handleAuth} onLogin={() => open({ name: "login" })} />;
-    return <LoginPage onAuth={handleAuth} onSignup={() => open({ name: "signup" })} />;
-  }
+  // Every signed-in screen is rendered through here, so the dose reminder popup can sit above all of them.
+  const renderView = () => {
+      if (!auth) {
+      if (view.name === "signup")
+        return <SignupPage onAuth={handleAuth} onLogin={() => open({ name: "login" })} />;
+      return <LoginPage onAuth={handleAuth} onSignup={() => open({ name: "signup" })} />;
+    }
 
-  if (view.name === "welcome" || view.name === "login" || view.name === "signup") {
-    return <WelcomePage onGetStarted={startSetup} progress={progress} onResume={resumeSetup} onStartOver={startOver} />;
-  }
+    if (view.name === "welcome" || view.name === "login" || view.name === "signup") {
+      return <WelcomePage onGetStarted={startSetup} progress={progress} onResume={resumeSetup} onStartOver={startOver} />;
+    }
 
-   if (view.name === "dashboard") {
-  return (
-    <OnboardingLayout>
-          <button
-        onClick={handleLogout}
-        className="fixed right-4 top-4 z-50 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium shadow"
-      >
-        Log out
-      </button>
-      <Dashboard
-        data={view.data}
-        selectedDay={selectedDay}
-        onEditSetup={() =>
-          open({
-            name: "onboarding",
-            data: view.data,
-            step: 11,
-          })
-        }
-        onOpenTrends={() =>
-          open({
-            name: "trends",
-            data: view.data,
-          })
-        }
-        onOpenDailyLog={() =>
-          open({
-            name: "daily-log",
-            data: view.data,
-          })
-        }
-        onOpenSettings={() =>
-          open({
-            name: "settings",
-            data: view.data,
-          })
-        }
-        onOpenCalendar={() =>
-          open({
-            name: "calendar",
-            data: view.data,
-          })
-        }
-      />
-    </OnboardingLayout>
-  );
-}
-
-  if (view.name === "log" || view.name === "trends" || view.name === "daily-log" || view.name === "calendar" || view.name === "settings") {
-    const back = () => open({ name: "dashboard", data: view.data });
+     if (view.name === "dashboard") {
     return (
-      <OnboardingLayout>
-        {view.name === "log" && <LogPeriodPage onDone={back} onBack={back} />}
-        {view.name === "daily-log" && (
-          <PhaseDailyLog
-            data={view.data}
-            initialDay={view.day ?? selectedDay}
-            onDayChange={setSelectedDay}
-            onBack={back}
-            onOpenCalendar={() => open({ name: "calendar", data: view.data })}
-            onOpenTrends={() => open({ name: "trends", data: view.data })}
-            onOpenSettings={() => open({ name: "settings", data: view.data })}
-          />
-        )}
-        {view.name === "calendar" && (
-  <CalendarPage
-    data={view.data}
-    selectedDay={selectedDay}
-    onBack={back}
-    onOpenOverview={back}
-    onOpenDailyLog={() =>
-      open({
-        name: "daily-log",
-        data: view.data,
-        day: selectedDay,
-      })
-    }
-    onOpenTrends={() =>
-      open({
-        name: "trends",
-        data: view.data,
-      })
-    }
-    onOpenSettings={() =>
-      open({
-        name: "settings",
-        data: view.data,
-      })
-    }
-    onOpenDay={(day) => {
-      setSelectedDay(day);
-      open({
-        name: "daily-log",
-        data: view.data,
-        day,
-      });
-    }}
-  />
-)}
-        {view.name === "trends" && (
-  <TrendsPage
-    data={view.data}
-    onBack={back}
-    day={selectedDay}
-    onOpenOverview={back}
-    onOpenCalendar={() =>
-      open({
-        name: "calendar",
-        data: view.data,
-      })
-    }
-    onOpenDailyLog={() =>
-      open({
-        name: "daily-log",
-        data: view.data,
-        day: selectedDay,
-      })
-    }
-    onOpenSettings={() =>
-      open({
-        name: "settings",
-        data: view.data,
-      })
-    }
-  />
-)}
-        {view.name === "settings" && (
-          <PhaseSettings
-            data={view.data}
-            day={selectedDay}
-            onBack={back}
-            onOpenCalendar={() => open({ name: "calendar", data: view.data })}
-            onOpenDailyLog={() => open({ name: "daily-log", data: view.data })}
-            onOpenTrends={() => open({ name: "trends", data: view.data })}
-          />
-        )}
+      <OnboardingLayout containerClassName="px-[clamp(1rem,3.1vw,3rem)]">
+            <button
+          onClick={handleLogout}
+          className="fixed right-4 top-4 z-50 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium shadow"
+        >
+          Log out
+        </button>
+        <Dashboard
+          data={view.data}
+          selectedDay={selectedDay}
+          onEditSetup={() =>
+            open({
+              name: "manage-journey",
+              data: view.data,
+            })
+          }
+          onOpenTrends={() =>
+            open({
+              name: "trends",
+              data: view.data,
+            })
+          }
+          onOpenDailyLog={() =>
+            open({
+              name: "daily-log",
+              data: view.data,
+            })
+          }
+          onOpenMedicationHistory={() =>
+            open({ name: "medication-history", data: view.data })
+          }
+          onOpenSettings={() =>
+            open({
+              name: "settings",
+              data: view.data,
+            })
+          }
+          onOpenCalendar={() =>
+            open({
+              name: "calendar",
+              data: view.data,
+            })
+          }
+        />
       </OnboardingLayout>
     );
   }
 
-  return (
-    <OnboardingLayout
-      mode="fixed"
-      headerRight={
-        <div className="flex items-center gap-4">
-          <p className="hidden items-center gap-1.5 text-body-sm font-medium text-ink-muted md:flex">
-            <Clock className="size-3.5 text-rose" aria-hidden="true" />
-            About 3 minutes
-          </p>
-          <PrivacyPill />
-        </div>
+    if (view.name === "manage-journey") {
+      return (
+        <OnboardingLayout containerClassName="px-[clamp(1rem,3.1vw,3rem)]">
+          <ManageJourneyReview
+            data={view.data}
+            onBack={() => open({ name: "settings", data: view.data })}
+            onDashboard={(data) => open({ name: "dashboard", data })}
+          />
+        </OnboardingLayout>
+      );
+    }
+
+    if (view.name === "medication-history") {
+      const back = () =>
+        open(view.from === "daily-log" ? { name: "daily-log", data: view.data } : { name: "dashboard", data: view.data });
+      return (
+        <OnboardingLayout containerClassName="px-[clamp(1rem,3.1vw,3rem)]">
+          <MedicationHistoryPage
+            data={view.data}
+            onBack={back}
+            initialTab={view.tab}
+            onNavigate={(tab) => {
+              if (tab === "overview") open({ name: "dashboard", data: view.data });
+              else if (tab === "calendar") open({ name: "calendar", data: view.data });
+              else if (tab === "daily-log") open({ name: "daily-log", data: view.data, day: selectedDay });
+              else if (tab === "insights") open({ name: "trends", data: view.data });
+              else if (tab === "settings") open({ name: "settings", data: view.data });
+            }}
+          />
+        </OnboardingLayout>
+      );
+    }
+
+    if (view.name === "log" || view.name === "trends" || view.name === "daily-log" || view.name === "calendar" || view.name === "settings") {
+      const back = () => open({ name: "dashboard", data: view.data });
+      return (
+        <OnboardingLayout containerClassName="px-[clamp(1rem,3.1vw,3rem)]">
+          {view.name === "log" && <LogPeriodPage onDone={back} onBack={back} />}
+          {view.name === "daily-log" && (
+            <MedicationHistoryLink.Provider
+              value={() => open({ name: "medication-history", data: view.data, from: "daily-log", tab: "upcoming" })}
+            >
+              <PhaseDailyLog
+                data={view.data}
+                initialDay={view.day ?? selectedDay}
+                onDayChange={setSelectedDay}
+                onBack={back}
+                onOpenCalendar={() => open({ name: "calendar", data: view.data })}
+                onOpenTrends={() => open({ name: "trends", data: view.data })}
+                onOpenMedicationHistory={() => open({ name: "medication-history", data: view.data })}
+                onOpenSettings={() => open({ name: "settings", data: view.data })}
+              />
+            </MedicationHistoryLink.Provider>
+          )}
+          {view.name === "calendar" && (
+    <CalendarPage
+      data={view.data}
+      selectedDay={selectedDay}
+      onBack={back}
+      onOpenOverview={back}
+      onOpenDailyLog={() =>
+        open({
+          name: "daily-log",
+          data: view.data,
+          day: selectedDay,
+        })
       }
-    >
-      <OnboardingFlow
-        // Remount when resuming so the flow starts from the provided data and step.
-        key={view.step ? `step-${view.step}` : "new"}
-        initialData={view.data}
-        initialStep={view.step ?? 1}
-        initialCompleted={view.completed}
-        onStepChange={handleStepChange}
-        onComplete={async (data) => {
-          // Persist data to Mednevo backend via enterprise API service layer
-          await submitOnboardingProfile(data);
-          setProgress(null);
-          open({ name: "dashboard", data });
-        }}
-      />
-    </OnboardingLayout>
+      onOpenTrends={() =>
+        open({
+          name: "trends",
+          data: view.data,
+        })
+      }
+      onOpenMedicationHistory={() =>
+        open({
+          name: "medication-history",
+          data: view.data,
+        })
+      }
+      onOpenSettings={() =>
+        open({
+          name: "settings",
+          data: view.data,
+        })
+      }
+      onOpenDay={(day) => {
+        setSelectedDay(day);
+        open({
+          name: "daily-log",
+          data: view.data,
+          day,
+        });
+      }}
+    />
+  )}
+          {view.name === "trends" && (
+    <TrendsPage
+      data={view.data}
+      onBack={back}
+      day={selectedDay}
+      onOpenOverview={back}
+      onOpenCalendar={() =>
+        open({
+          name: "calendar",
+          data: view.data,
+        })
+      }
+      onOpenDailyLog={() =>
+        open({
+          name: "daily-log",
+          data: view.data,
+          day: selectedDay,
+        })
+      }
+      onOpenMedicationHistory={() =>
+        open({
+          name: "medication-history",
+          data: view.data,
+        })
+      }
+      onOpenSettings={() =>
+        open({
+          name: "settings",
+          data: view.data,
+        })
+      }
+    />
+  )}
+          {view.name === "settings" && (
+            <PhaseSettings
+              data={view.data}
+              day={selectedDay}
+              onEditSetup={(data) => open({ name: "manage-journey", data })}
+              onBack={back}
+              onOpenCalendar={() => open({ name: "calendar", data: view.data })}
+              onOpenDailyLog={() => open({ name: "daily-log", data: view.data })}
+              onOpenTrends={() => open({ name: "trends", data: view.data })}
+              onOpenMedicationHistory={() => open({ name: "medication-history", data: view.data })}
+            />
+          )}
+        </OnboardingLayout>
+      );
+    }
+
+    return (
+      <OnboardingLayout
+        mode="fixed"
+        headerRight={
+          <div className="flex items-center gap-4">
+            <p className="hidden items-center gap-1.5 text-body-sm font-medium text-ink-muted md:flex">
+              <Clock className="size-3.5 text-rose" aria-hidden="true" />
+              About 3 minutes
+            </p>
+            <PrivacyPill />
+          </div>
+        }
+      >
+        <OnboardingFlow
+          // Remount when resuming so the flow starts from the provided data and step.
+          key={view.step ? `step-${view.step}` : "new"}
+          initialData={view.data}
+          initialStep={view.step ?? 1}
+          initialCompleted={view.completed}
+          onStepChange={handleStepChange}
+          onComplete={async (data) => {
+            // Persist data to Mednevo backend via enterprise API service layer
+            const result = await submitOnboardingProfile(data);
+            if (!result.success) {
+              // Stay on onboarding and keep saved progress, so the user can retry instead of landing on an empty dashboard.
+              console.error("[onboarding] save failed:", result.statusCode, result.error);
+              window.alert(`Setup save aagala: ${result.error ?? "Unknown error"}`);
+              return;
+            }
+            setProgress(null);
+            open({ name: "dashboard", data });
+          }}
+        />
+      </OnboardingLayout>
+    );
+  };
+
+  return (
+    <>
+      {renderView()}
+      {/* Mounted once for every page; it only runs while the user is signed in. */}
+      {auth && <DoseReminderPopup />}
+      {auth && <RefillReminderPopup />}
+    </>
   );
 }

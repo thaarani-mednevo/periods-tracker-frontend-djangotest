@@ -1,19 +1,28 @@
 import { useState, type ReactNode } from "react";
-import { card } from "../phases/shared";
 
+// Option box: same look as the Vercel mood / mucus tiles (soft border, pink gradient when selected).
 const chip = (on: boolean) =>
-  `rounded-full px-3.5 py-1.5 text-body-sm font-semibold transition-colors ${
-    on ? "bg-rose text-white" : "border border-blush-300 bg-white text-ink-muted hover:bg-blush-50"
+  `rounded-[12px] border px-4 py-2 text-[14px] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 focus-visible:ring-offset-2 ${
+    on
+      ? "border-[#F0529C] bg-gradient-to-b from-[#FFF4F8] to-[#FDEAF2] text-[#EF4486] shadow-[0px_6px_16px_-6px_rgba(240,82,156,0.35)]"
+      : "border-[#EEEAEE] bg-white text-gray-500 hover:border-pink-200"
   }`;
 
-export const fieldCls = "mt-1 w-full rounded-[14px] border border-line bg-white px-3.5 py-2.5 text-body text-ink";
+const labelCls = "text-[14px] font-semibold text-gray-900";
+
+export const fieldCls =
+  "mt-2 w-full rounded-[12px] border border-[#EEEAEE] bg-white px-4 py-2.5 text-[14px] text-gray-900 focus:border-[#F0529C] focus:outline-none focus:ring-2 focus:ring-pink-200";
 
 export function Section({ id, title, hint, children }: { id: string; title: string; hint?: string; children: ReactNode }) {
   return (
-    <section className={card} aria-labelledby={id}>
-      <h2 id={id} className="text-heading font-semibold text-ink">{title}</h2>
-      {hint && <p className="mt-0.5 text-body-sm text-ink-muted">{hint}</p>}
-      <div className="mt-4 grid gap-5">{children}</div>
+    <section
+      aria-labelledby={id}
+      className="w-full rounded-[22px] border border-[#F4F1F5] bg-white p-[clamp(1rem,2.4vw,2rem)] shadow-[0px_8px_30px_-12px_rgba(38,33,78,0.12)]"
+    >
+      <h2 id={id} className="text-[18px] font-semibold leading-tight text-gray-900">{title}</h2>
+      {hint && <p className="mt-1 text-[14px] text-gray-500">{hint}</p>}
+      {/* Vertical rhythm between the fields inside one card */}
+      <div className="mt-4 grid gap-[clamp(1.1rem,1.8vw,1.5rem)] lg:mt-5">{children}</div>
     </section>
   );
 }
@@ -24,8 +33,8 @@ export function ChoiceGroup<T extends string>({
 }: { label: string; options: readonly T[]; value: T | null; onChange: (v: T | null) => void }) {
   return (
     <div role="group" aria-label={label}>
-      <p className="text-body-sm font-semibold text-ink">{label}</p>
-      <div className="mt-2 flex flex-wrap gap-2">
+      <p className={labelCls}>{label}</p>
+      <div className="mt-3 flex flex-wrap gap-2.5">
         {options.map((o) => (
           <button key={o} type="button" aria-pressed={value === o} onClick={() => onChange(value === o ? null : o)} className={chip(value === o)}>
             {o}
@@ -51,10 +60,10 @@ export function ScaleGroup({ label, min, max, value, onChange }: { label: string
   const steps = Array.from({ length: max - min + 1 }, (_, i) => min + i);
   return (
     <div role="group" aria-label={label}>
-      <p className="text-body-sm font-semibold text-ink">{label}</p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <p className={labelCls}>{label}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
         {steps.map((n) => (
-          <button key={n} type="button" aria-pressed={value === n} onClick={() => onChange(value === n ? null : n)} className={`${chip(value === n)} min-w-[2.5rem] !px-0 text-center`}>
+          <button key={n} type="button" aria-pressed={value === n} onClick={() => onChange(value === n ? null : n)} className={`${chip(value === n)} min-w-[2.75rem] !px-0 text-center`}>
             {n}
           </button>
         ))}
@@ -69,8 +78,8 @@ export function MultiChoice<T extends string>({
   const toggle = (id: T) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
   return (
     <div role="group" aria-label={label}>
-      <p className="text-body-sm font-semibold text-ink">{label}</p>
-      <div className="mt-2 flex flex-wrap gap-2">
+      <p className={labelCls}>{label}</p>
+      <div className="mt-3 flex flex-wrap gap-2.5">
         {options.map((o) => (
           <button key={o.id} type="button" aria-pressed={value.includes(o.id)} onClick={() => toggle(o.id)} className={chip(value.includes(o.id))}>
             {o.label}
@@ -87,9 +96,9 @@ export function NumberField({
   // Keep the raw text so typing "36." or "36.5" isn't rewritten on every keystroke.
   const [text, setText] = useState(value === null ? "" : String(value));
   return (
-    <label className="block text-body-sm font-semibold text-ink">
+    <label className={`block ${labelCls}`}>
       {label}
-      {unit && <span className="font-normal text-ink-muted"> ({unit})</span>}
+      {unit && <span className="font-normal text-gray-500"> ({unit})</span>}
       <input
         type="number"
         inputMode="decimal"
@@ -112,7 +121,7 @@ export function NumberField({
 
 export function TimeField({ label, value, onChange }: { label: string; value: string | null; onChange: (v: string | null) => void }) {
   return (
-    <label className="block text-body-sm font-semibold text-ink">
+    <label className={`block ${labelCls}`}>
       {label}
       <input type="time" value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} className={fieldCls} />
     </label>
@@ -121,7 +130,7 @@ export function TimeField({ label, value, onChange }: { label: string; value: st
 
 export function NotesField({ value, onChange, max = 1000 }: { value: string | null; onChange: (v: string | null) => void; max?: number }) {
   return (
-    <label className="block text-body-sm font-semibold text-ink">
+    <label className={`block ${labelCls}`}>
       Notes
       <textarea
         value={value ?? ""}
@@ -130,7 +139,7 @@ export function NotesField({ value, onChange, max = 1000 }: { value: string | nu
         onChange={(e) => onChange(e.target.value || null)}
         className={`${fieldCls} resize-y`}
       />
-      <span className="mt-1 block text-right text-caption font-normal text-ink-muted">{(value ?? "").length}/{max}</span>
+      <span className="mt-1 block text-right text-[13px] font-normal text-gray-500">{(value ?? "").length}/{max}</span>
     </label>
   );
 }

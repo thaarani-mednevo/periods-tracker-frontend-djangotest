@@ -1,10 +1,10 @@
-import { Activity, AlertCircle, Apple, Droplets, Flame, Heart, Moon, type LucideIcon } from "lucide-react";
+import { Activity, AlertCircle, Apple, Droplets, Dumbbell, Flame, Leaf, Moon, type LucideIcon } from "lucide-react";
 
 /** Static educational copy for the menstrual phase. Nothing personal lives here; all dates come from the backend. */
 export const MENSTRUAL_COPY = {
   heading: "You're likely on your period",
   description:
-    "The uterine lining is shedding. Lower energy is common. Rest, stay hydrated, and be kind to yourself.",
+    "Your body is releasing the lining of your womb, which is why you bleed. Feeling tired is common, so rest, drink water and be kind to yourself.",
 };
 
 export const CARE_TIPS: { icon: LucideIcon; title: string; text: string }[] = [
@@ -17,7 +17,7 @@ export const CARE_TIPS: { icon: LucideIcon; title: string; text: string }[] = [
 ];
 
 export const WELLNESS: { icon: LucideIcon; title: string; items: string[] }[] = [
-  { icon: Apple, title: "Nutrition tips", items: ["Include iron-rich foods", "Eat fresh fruits and vegetables", "Stay hydrated", "Consider foods rich in omega-3"] },
-  { icon: Activity, title: "Exercise suggestions", items: ["Try light to moderate activities", "Walking or gentle yoga", "Stretching can help reduce cramps", "Listen to your body on low-energy days"] },
-  { icon: Heart, title: "General wellness", items: ["Get enough rest and sleep", "Use a heating pad for cramps", "Manage stress with relaxation techniques", "Take time for self-care"] },
+  { icon: Apple, title: "Nutrition Tips", items: ["Include iron-rich foods", "Eat fresh fruits and vegetables", "Stay hydrated", "Consider foods rich in omega-3"] },
+  { icon: Dumbbell, title: "Exercise Suggestions", items: ["Try light to moderate activities", "Walking or gentle yoga", "Stretching can help reduce cramps", "Listen to your body on low-energy days"] },
+  { icon: Leaf, title: "General Wellness", items: ["Get enough rest and sleep", "Use a heating pad for cramps", "Manage stress with relaxation techniques", "Take time for self-care"] },
 ];

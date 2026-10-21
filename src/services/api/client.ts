@@ -18,6 +18,9 @@ export class ApiError extends Error {
 }
 
 export function getBaseUrl(): string {
+  // Dev: always same-origin, Vite proxy forwards /api (no CORS). Prod: env value.
+  if (import.meta.env.DEV) return window.location.origin;
+ if (import.meta.env.DEV) return window.location.origin;
   return (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 }
 

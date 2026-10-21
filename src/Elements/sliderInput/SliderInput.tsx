@@ -68,10 +68,20 @@ export function SliderInput({
         style={fillStyle}
       />
 
-      <div className="-mt-1 flex justify-between text-micro font-medium text-ink-muted" aria-hidden="true">
-        {(ticks ?? [min, max]).map((t) => (
-          <span key={t}>{t}</span>
-        ))}
+      <div className="relative -mt-1 h-5 text-micro font-medium text-ink-muted" aria-hidden="true">
+        {(ticks ?? [min, max]).map((t) => {
+          const tp = (t - min) / (max - min);
+          // Native thumb is 26px wide, so its centre travels (width - 26px), offset by half the thumb.
+          return (
+            <span
+              key={t}
+              className="absolute top-0 -translate-x-1/2"
+              style={{ left: `calc(${tp * 100}% + ${(0.5 - tp) * 26}px)` }}
+            >
+              {t}
+            </span>
+          );
+        })}
       </div>
 
       {children}

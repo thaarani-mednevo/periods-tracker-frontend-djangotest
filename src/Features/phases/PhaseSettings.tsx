@@ -5,20 +5,24 @@ import { LutealShell } from "./luteal/components/Shell";
 
 interface PhaseSettingsProps {
   data: OnboardingData;
+  onEditSetup: (data: OnboardingData) => void;
   onBack: () => void;
   onOpenCalendar: () => void;
   onOpenDailyLog: () => void;
   onOpenTrends: () => void;
+  onOpenMedicationHistory: () => void;
   day?: string;
 }
 
 export function PhaseSettings({
   data,
   day,
+  onEditSetup,
   onBack,
   onOpenCalendar,
   onOpenDailyLog,
   onOpenTrends,
+  onOpenMedicationHistory,
 }: PhaseSettingsProps) {
   const cycle = useCycle(day);
 
@@ -38,13 +42,14 @@ export function PhaseSettings({
             else if (tab === "calendar") onOpenCalendar();
             else if (tab === "daily-log") onOpenDailyLog();
             else if (tab === "insights") onOpenTrends();
+            else if (tab === "medication-history") onOpenMedicationHistory();
           }}
         />
 
-        <SettingsPanel data={data} />
+        <SettingsPanel data={data} onEditSetup={onEditSetup} />
       </div>
     );
   }
 
-  return <SettingsPanel data={data} />;
+  return <SettingsPanel data={data} onEditSetup={onEditSetup} />;
 }

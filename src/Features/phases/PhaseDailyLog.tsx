@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CyclePhase, CycleState } from "../../services/cycle";
-import { useCycle } from "../../hooks/useCycle";
+import { peekCycle, prefetchCycle, useCycle, withViewTransition } from "../../hooks/useCycle";
+import { addDays, toIso } from "../../lib/isoDate";
 import { useAsync } from "../../hooks/useAsync";
 import { getProfile, journeyFromGoal } from "../../services/settings";
 import type { OnboardingData } from "../../types";
 import { LutealDailyLog } from "./luteal/LutealDailyLog";
 import { MenstrualDailyLog } from "./menstrual/MenstrualDailyLog";
 import { FollicularDailyLog } from "./follicular/FollicularDailyLog";
+import { OvulationDailyLog } from "./ovulation/OvulationDailyLog";
+import { usePhaseScale } from "./registry";
 
 interface PhaseDailyLogProps {
   data: OnboardingData;
@@ -14,8 +17,8 @@ interface PhaseDailyLogProps {
   onBack: () => void;
   onOpenCalendar: () => void;
   onOpenTrends: () => void;
+  onOpenMedicationHistory: () => void;
   onOpenSettings: () => void;
-  /** Selected date maarumbodhu App-ku sollum, so ellaa pages-layum same date irukkum */
   onDayChange?: (day: string) => void;
 }
 
@@ -25,6 +28,7 @@ export function PhaseDailyLog({
   onBack,
   onOpenCalendar,
   onOpenTrends,
+  onOpenMedicationHistory,
   onOpenSettings,
   onDayChange,
 }: PhaseDailyLogProps) {
@@ -50,6 +54,13 @@ export function PhaseDailyLog({
    */
   const cycle = useCycle(selectedDay);
 
+  // Load the neighbouring days in the background, so the previous / next day opens instantly.
+  useEffect(() => {
+    const base = selectedDay ?? toIso(new Date());
+    prefetchCycle(addDays(base, -1));
+    prefetchCycle(addDays(base, 1));
+  }, [selectedDay]);
+
   // Journey (Track / TTC / Prevent) + tracking toggles from Settings.
   const profile = useAsync(useCallback((sig: AbortSignal) => getProfile(sig), []));
   const journey = journeyFromGoal(profile.data?.fertilityGoal ?? "");
@@ -63,6 +74,10 @@ export function PhaseDailyLog({
   // Keep showing the last known phase screen instead of dropping to the generic page.
   const lastPhase = useRef<Exclude<CyclePhase, "unknown"> | null>(null);
   if (state && state.phase !== "unknown") lastPhase.current = state.phase;
+
+  // Ovulation and follicular share the follicular type scale (menstrual / luteal have their own).
+  const shownPhase = state && state.phase !== "unknown" ? state.phase : lastPhase.current;
+  usePhaseScale(shownPhase === "menstrual" || shownPhase === "luteal" ? shownPhase : "follicular");
 
   if ((!state && cycle.status !== "error") || (profile.status === "loading" && !profile.data)) {
     return <p className="text-body text-ink-muted">Loading…</p>;
@@ -79,7 +94,13 @@ export function PhaseDailyLog({
   }
     if (!state) return null;
 
-  const phase: Exclude<CyclePhase, "unknown"> = state.phase !== "unknown" ? state.phase : (lastPhase.current ?? "follicular");
+  // needs_data: always the neutral log (follicular screen with "unknown" wording), never a stale phase screen.
+  const phase: Exclude<CyclePhase, "unknown"> =
+    state.phase !== "unknown"
+      ? state.phase
+      : state.phaseState === "needs_data"
+        ? "follicular"
+        : (lastPhase.current ?? "follicular");
 
   const handleDateChange = (date: string) => {
     setSelectedDay(date);
@@ -93,6 +114,8 @@ export function PhaseDailyLog({
       onOpenCalendar();
     } else if (tab === "insights") {
       onOpenTrends();
+    } else if (tab === "medication-history") {
+      onOpenMedicationHistory();
     } else if (tab === "settings") {
       onOpenSettings();
     }
@@ -131,18 +154,33 @@ export function PhaseDailyLog({
   }
 
   /*
-   * FOLLICULAR + OVULATION (also the fallback for dates with no known phase)
+   * OVULATION
    *
-   * Uses the same Django DailyLog API as the other phases, but gets the
-   * phase-specific visual treatment from the Follicular reference design.
+   * Own screen (BBT + Medication row, fertility note, intercourse) with the journey and tracking toggles from Settings.
+   */
+  if (phase === "ovulation") {
+    return (
+      <OvulationDailyLog
+        key="ovulation"
+        data={data}
+        state={state}
+        journey={journey}
+        tracking={tracking}
+        initialDay={selectedDay}
+        onDateChange={handleDateChange}
+        onNavigate={handleNavigate}
+      />
+    );
+  }
+
+  /*
+   * FOLLICULAR (also the fallback for dates with no known phase)
    */
   return (
     <FollicularDailyLog
-      key="follicular-ovulation"
+      key="follicular"
       data={data}
       state={state}
-      journey={journey}
-      tracking={tracking}
       initialDay={selectedDay}
       onDateChange={handleDateChange}
       onNavigate={handleNavigate}

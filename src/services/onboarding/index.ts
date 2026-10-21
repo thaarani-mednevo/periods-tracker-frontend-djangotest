@@ -18,6 +18,7 @@ export interface ProfileSubmissionResult {
 const DEFAULT_TIMEOUT_MS = 10000;
 
 function getBaseUrl(): string {
+  if (import.meta.env.DEV) return window.location.origin;
   return (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 }
 
@@ -61,7 +62,11 @@ export async function submitOnboardingProfile(
       let errorMsg = `Server returned status ${response.status}`;
       try {
         const errorJson = await response.json();
+                console.error("[onboarding/profile] rejected:", response.status, JSON.stringify(errorJson));
         if (errorJson?.message) errorMsg = errorJson.message;
+        const detail = errorJson?.error?.details ?? errorJson?.errors ?? errorJson?.error?.fields;
+        if (detail) errorMsg += ` — ${typeof detail === "string" ? detail : JSON.stringify(detail)}`;
+        else if (errorJson?.error?.code) errorMsg += ` (${errorJson.error.code})`;
       } catch {
         // ignore json parse errors on error responses
       }

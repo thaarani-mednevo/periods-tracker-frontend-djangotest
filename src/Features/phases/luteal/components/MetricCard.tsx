@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
+import { CardWave } from "../../../../Elements/CardWave/CardWave";
 
 export interface MetricCardProps {
   label: string;
@@ -12,14 +13,15 @@ export interface MetricCardProps {
 
 export function MetricCard({ label, value, description, visual, accent, badge, onOpen }: MetricCardProps & { onOpen: () => void }) {
   return (
-    <article className="lu-card flex min-h-[clamp(120px,8.5vw,148px)] items-center gap-[clamp(12px,1vw,18px)] p-lu-card">
+    <article className="lu-card relative isolate flex min-h-[clamp(120px,8.5vw,148px)] items-center gap-[clamp(12px,1vw,18px)] p-lu-card">
+      <CardWave behind />
       <div className="flex w-[clamp(56px,4.6vw,84px)] shrink-0 items-center justify-center">{visual}</div>
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-lu-label font-semibold text-lu-ink">{label}</span>
           {badge && <span className={`rounded-full px-2 py-0.5 text-lu-caption font-semibold ${badge.className}`}>{badge.text}</span>}
         </div>
-        <p className="mt-1 text-lu-title font-bold text-lu-ink">{value}</p>
+        <p className="mt-1 text-[clamp(1rem,1.2vw,1.2rem)] font-bold leading-tight text-lu-ink">{value}</p>
         <div className="mt-1.5 flex items-end justify-between gap-2">
           <p className="min-w-0 text-lu-label text-lu-ink-muted">{description}</p>
           <button

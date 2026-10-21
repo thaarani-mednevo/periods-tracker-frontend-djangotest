@@ -8,6 +8,7 @@ import {
   addMedication, emptyLog, getDailyLog, getLogRange, getMedications, removeMedication, saveDailyLog, setIntake, updateMedication,
   type DailyLog, type NewMedication,
 } from "../../../../services/logs";
+import { DOSES_CHANGED_EVENT } from "../../../medicationHistory/doseSlots";
 import { DEFAULT_STEP_GOAL, GLASS_ML, WATER_TARGET_ML } from "./constants";
 import type { CycleInfo } from "./phaseCopy";
 
@@ -29,10 +30,40 @@ const errorText = (err: ApiError) => {
 
 /** Medications for one day: list + add / edit / remove / mark taken. Saved immediately, not part of "Save Log". */
 export function useMedications(day: string) {
-  const load = useCallback((s: AbortSignal) => getMedications(day, s), [day]);
+  const load = useCallback(
+    async (s: AbortSignal) => {
+      const res = await getMedications(day, s);
+      const today = localISODate();
+      if (day === today) return res;
+      try {
+        // Backend returns medications only for days it knows about, so also pull today's list
+        // and carry over anything whose start/end date range covers the selected day.
+        const base = await getMedications(today, s);
+        const have = new Set(res.medications.map((m) => m.id));
+        const carried = base.medications
+          .filter((m) => !have.has(m.id))
+          .filter((m) => (!m.startDate || day >= m.startDate) && (!m.endDate || day <= m.endDate))
+          .map((m) => ({
+            ...m,
+            status: 'pending' as typeof m.status,
+            doses: m.doses?.map((d) => ({ ...d, status: 'pending' as typeof d.status, loggedAt: null })),
+          }));
+        return { ...res, medications: [...res.medications, ...carried] };
+      } catch {
+        return res;
+      }
+    },
+    [day],
+  );
   const list = useAsync(load);
   const { refetch } = list;
   const [error, setError] = useState<string | null>(null);
+
+  // A dose was saved from the global reminder popup: reload so these rows are not stale
+  useEffect(() => {
+    window.addEventListener(DOSES_CHANGED_EVENT, refetch);
+    return () => window.removeEventListener(DOSES_CHANGED_EVENT, refetch);
+  }, [refetch]);
 
   const run = async (fn: () => Promise<unknown>) => {
     setError(null);
@@ -52,9 +83,9 @@ export function useMedications(day: string) {
     add: (m: NewMedication) => run(() => addMedication(m)),
     update: (id: number, m: NewMedication) => run(() => updateMedication(id, m)),
     remove: (id: number) => run(() => removeMedication(id)),
-    setStatus: (id: number, next: "taken" | "skipped") => {
-      const current = medications.find((m) => m.id === id)?.status;
-      return run(() => setIntake(id, day, current === next ? null : next));
+    setStatus: (id: number, next: "taken" | "skipped" | "missed", slot = 1) => {
+      const current = medications.find((m) => m.id === id)?.doses?.find((d) => d.slot === slot)?.status;
+      return run(() => setIntake(id, day, current === next ? null : next, slot));
     },
   };
 }

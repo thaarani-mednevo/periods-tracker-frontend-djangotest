@@ -157,3 +157,67 @@ export function FieldGroup({
     </fieldset>
   );
 }
+
+/**
+ * 12-hour time picker (hour, minute, AM/PM). The native <input type="time"> follows the device
+ * setting and shows 24h on many phones, so medication times use this instead.
+ * `value` and `onChange` still use the 24h "HH:mm" string the API stores.
+ */
+const TIME_HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
+const TIME_MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
+
+type TimePeriod = "AM" | "PM";
+interface TimeParts {
+  hour: string; // "1".."12", or "" when no time is set yet
+  minute: string; // "00".."59", or ""
+  period: TimePeriod;
+}
+
+function splitTime(value: string): TimeParts {
+  const m = /^(\d{1,2}):(\d{2})/.exec(value ?? "");
+  if (!m) return { hour: "", minute: "", period: "AM" };
+  const h24 = Number(m[1]);
+  return { hour: String(h24 % 12 || 12), minute: m[2], period: h24 >= 12 ? "PM" : "AM" };
+}
+
+function joinTime({ hour, minute, period }: TimeParts) {
+  const h24 = (Number(hour) % 12) + (period === "PM" ? 12 : 0);
+  return `${String(h24).padStart(2, "0")}:${minute}`;
+}
+
+export function TimeInput12({
+  value, onChange, className = "", id, ariaLabel = "Time", invalid,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  /** Same look as the other inputs of the form (applied to each of the three selects) */
+  className?: string;
+  id?: string;
+  ariaLabel?: string;
+  invalid?: boolean;
+}) {
+  const cur = splitTime(value);
+  // Picking any part of an empty time fills the rest (8:00 AM), so the result is always a complete time
+  const change = (patch: Partial<TimeParts>) =>
+    onChange(joinTime({ hour: cur.hour || "8", minute: cur.minute || "00", period: cur.period, ...patch }));
+  const cls = `${className} min-w-0 flex-1 cursor-pointer`;
+  const pad = { paddingInline: 10 };
+
+  return (
+    <div role="group" aria-label={ariaLabel} className="flex w-full items-center gap-1.5">
+      <select id={id} aria-label={`${ariaLabel} hour`} aria-invalid={invalid || undefined} value={cur.hour} onChange={(e) => change({ hour: e.target.value })} className={cls} style={pad}>
+        {!cur.hour && <option value="">--</option>}
+        {TIME_HOURS.map((h) => <option key={h} value={h}>{h}</option>)}
+      </select>
+      <span aria-hidden="true" className="font-bold">:</span>
+      <select aria-label={`${ariaLabel} minute`} aria-invalid={invalid || undefined} value={cur.minute} onChange={(e) => change({ minute: e.target.value })} className={cls} style={pad}>
+        {!cur.minute && <option value="">--</option>}
+        {TIME_MINUTES.map((m) => <option key={m} value={m}>{m}</option>)}
+      </select>
+      <select aria-label={`${ariaLabel} AM or PM`} aria-invalid={invalid || undefined} value={cur.period} onChange={(e) => change({ period: e.target.value as TimePeriod })} className={cls} style={pad}>
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  );
+}

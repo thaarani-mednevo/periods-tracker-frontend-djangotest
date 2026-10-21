@@ -1,9 +1,10 @@
 import { Check, Compass, X } from "lucide-react";
 import { useId, useRef, useState } from "react";
+import { InfoCard } from "../../Elements/infoCard/InfoCard";
 import type { Journey } from "../../services/settings";
 import { LuModal } from "../phases/shared/ui/LuModal";
 import { JourneyIcon } from "./controls";
-import { JOURNEY_OPTIONS } from "./journeyOptions";
+import { JOURNEY_OPTIONS, getJourneySafety } from "./journeyOptions";
 
 /** Mount it only while open, so the selection always starts from the saved journey. */
 export function ManageJourneyModal({ current, onClose, onSave }: {
@@ -16,6 +17,7 @@ export function ManageJourneyModal({ current, onClose, onSave }: {
   const closeBtn = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const descId = useId();
+  const safety = getJourneySafety(selected);
 
   const save = async () => {
     setSaving(true);
@@ -72,6 +74,12 @@ export function ManageJourneyModal({ current, onClose, onSave }: {
           );
         })}
       </fieldset>
+
+      {safety && (
+        <InfoCard key={selected} variant="disclaimer" title="Important safety information" className="mt-4">
+          {safety}
+        </InfoCard>
+      )}
 
       <div className="mt-6 grid grid-cols-2 items-center gap-3">
         <button type="button" onClick={save} disabled={saving} className="rounded-full bg-lu-brand py-3 text-lu-body font-semibold text-white shadow-lu-glow transition-colors hover:bg-lu-brand-strong disabled:opacity-60">

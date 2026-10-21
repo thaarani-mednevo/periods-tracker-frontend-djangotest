@@ -1,7 +1,7 @@
 // frontend/periods-onboarding/src/Features/insights/InsightCharts.tsx
 // Chart primitives ported from the trend-analysis reference (LineChart, BarChart, RingGauge, Heatmap).
 // Everything is plain SVG, no chart library. Every chart receives only values the user actually logged.
-import { useCallback, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type PointerEvent, type ReactNode } from "react";
 
 // ---------------------------------------------------------------- shared types / helpers
 export interface Margin {
@@ -86,11 +86,13 @@ export function niceScale(values: number[], opts: { floor?: number; ceil?: numbe
     hi = mid + minSpan / 2;
   }
   const pad = (hi - lo) * 0.15;
-  lo = Math.floor(lo - pad);
-  hi = Math.ceil(hi + pad);
+  const unit = step ?? 1;
+  lo = Math.floor((lo - pad) / unit) * unit;
+  hi = Math.ceil((hi + pad) / unit) * unit;
   if (floor !== undefined) lo = Math.max(lo, floor);
   if (ceil !== undefined) hi = Math.min(hi, ceil);
-  const s = step ?? Math.max(1, Math.ceil((hi - lo) / 4));
+  // Step grows if needed so 4 steps always cover the data (never clip the top).
+  const s = Math.max(unit, Math.ceil((hi - lo) / 4 / unit) * unit);
   hi = lo + s * 4;
   return { domain: [lo, hi] as [number, number], ticks: [0, 1, 2, 3, 4].map((i) => lo + i * s) };
 }
@@ -112,6 +114,63 @@ function useElementWidth<T extends HTMLElement>() {
     observerRef.current = observer;
   }, []);
   return [ref, width] as const;
+}
+
+// ---------------------------------------------------------------- hover tooltip
+/** Text for a value in the tooltip: the axis wording when it has one ("Good", "Heavy"), else a tidy number. */
+function tooltipText(value: number, formatY: (v: number) => string): string {
+  const axis = formatY(value);
+  if (axis !== "" && axis !== String(value)) return axis;
+  return Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100);
+}
+
+/** Index under the pointer. Mouse clears on leave; touch keeps the tooltip for a moment after the finger lifts. */
+function useHoverIndex() {
+  const [index, setIndex] = useState<number | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const show = (i: number) => {
+    window.clearTimeout(timer.current);
+    setIndex(i);
+  };
+  const leave = (pointerType: string) => {
+    window.clearTimeout(timer.current);
+    if (pointerType === "touch") timer.current = window.setTimeout(() => setIndex(null), 2200);
+    else setIndex(null);
+  };
+  return { index, show, leave };
+}
+
+interface TooltipRow {
+  color: string;
+  name?: string | undefined;
+  value: string;
+}
+
+function ChartTooltip({ x, y, width, title, rows }: { x: number; y: number; width: number; title: string; rows: TooltipRow[] }) {
+  const shift = x < width * 0.2 ? "-12px" : x > width * 0.8 ? "calc(-100% + 12px)" : "-50%";
+  const below = y < 76;
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute z-20 whitespace-nowrap rounded-xl border border-[#EDE6F7] bg-white/95 px-3 py-2 text-[11px] xl:text-xs"
+      style={{
+        left: x,
+        top: y,
+        transform: `translate(${shift}, ${below ? "14px" : "calc(-100% - 14px)"})`,
+        boxShadow: "0 10px 24px -8px rgba(60, 40, 120, 0.35)",
+      }}
+    >
+      <div className="font-semibold text-[#17152B]">{title}</div>
+      {rows.map((row, i) => (
+        <div key={i} className="mt-0.5 flex items-center gap-1.5">
+          <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.color }} />
+          {row.name && <span className="text-[#8A92A6]">{row.name}</span>}
+          <span className="font-semibold text-[#17152B]">{row.value}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------- axes
@@ -182,12 +241,16 @@ function Markers({ markers, toX, top, bottom }: { markers: ChartMarker[]; toX: (
 // ---------------------------------------------------------------- line chart
 export interface LineSeries {
   id: string;
+  /** Shown next to the value in the hover tooltip (useful when a chart has more than one line). */
+  name?: string;
   color: string;
   values: number[];
   dashed?: boolean;
   fill?: boolean;
   dots?: "all" | "last" | "none";
   lastDotColor?: string;
+  /** Horizontal stroke gradient (start to end); also tints the fill. */
+  gradient?: [string, string];
 }
 
 export function LineChart({
@@ -202,6 +265,8 @@ export function LineChart({
   referenceLines = [],
   curve = "smooth",
   margin: marginOverride,
+  tooltipLabels,
+  formatValue,
 }: {
   series: LineSeries[];
   xLabels: string[];
@@ -214,6 +279,10 @@ export function LineChart({
   referenceLines?: ReferenceLine[];
   curve?: "smooth" | "linear";
   margin?: Partial<Margin>;
+  /** Full label per point for the hover tooltip (defaults to xLabels). */
+  tooltipLabels?: string[];
+  /** Value text in the hover tooltip (defaults to the axis wording, else the number). */
+  formatValue?: ((value: number, index: number, seriesId: string) => string) | undefined;
 }) {
   const uid = useId();
   const [ref, width] = useElementWidth<HTMLDivElement>();
@@ -227,21 +296,45 @@ export function LineChart({
   const toY = scaleLinear(yDomain, [plotBottom, plotTop]);
   const buildPath = curve === "smooth" ? monotonePath : linearPath;
   const visible = visibleLabelIndexes(xLabels, plotRight - plotLeft);
+  const hover = useHoverIndex();
+  const svgRef = useRef<SVGSVGElement>(null);
+  const hi = hover.index !== null && hover.index < count ? hover.index : null;
+  const onPointer = (e: PointerEvent<SVGRectElement>) => {
+    const box = svgRef.current?.getBoundingClientRect();
+    if (!box || count === 0) return;
+    const ratio = (e.clientX - box.left - plotLeft) / (plotRight - plotLeft || 1);
+    hover.show(Math.min(count - 1, Math.max(0, Math.round(ratio * (count - 1)))));
+  };
+  const hoverRows: TooltipRow[] =
+    hi === null
+      ? []
+      : series.flatMap((s) => {
+          const v = s.values[hi];
+          return v === undefined ? [] : [{ color: s.color, name: s.name, value: formatValue ? formatValue(v, hi, s.id) : tooltipText(v, formatY) }];
+        });
+  const hoverTop = hi === null ? 0 : Math.min(...series.flatMap((s) => (s.values[hi] === undefined ? [] : [toY(s.values[hi] as number)])));
 
   return (
-    <div ref={ref} className="w-full">
+    <div ref={ref} className="relative w-full">
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={ariaLabel} className="block overflow-visible text-[10px] xl:text-[11px]">
+        <svg ref={svgRef} width={width} height={height} role="img" aria-label={ariaLabel} className="block overflow-visible text-[10px] xl:text-[11px]">
           <defs>
-            {series.map(
-              (s) =>
-                s.fill && (
-                  <linearGradient key={s.id} id={`${uid}-fill-${s.id}`} x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor={s.color} stopOpacity="0.22" />
-                    <stop offset="100%" stopColor={s.color} stopOpacity="0.02" />
+            {series.map((s) => (
+              <g key={s.id}>
+                {s.fill && (
+                  <linearGradient id={`${uid}-fill-${s.id}`} x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor={s.gradient?.[0] ?? s.color} stopOpacity="0.22" />
+                    <stop offset="100%" stopColor={s.gradient?.[1] ?? s.color} stopOpacity="0.02" />
                   </linearGradient>
-                ),
-            )}
+                )}
+                {s.gradient && (
+                  <linearGradient id={`${uid}-stroke-${s.id}`} gradientUnits="userSpaceOnUse" x1={plotLeft} x2={plotRight} y1="0" y2="0">
+                    <stop offset="0%" stopColor={s.gradient[0]} />
+                    <stop offset="100%" stopColor={s.gradient[1]} />
+                  </linearGradient>
+                )}
+              </g>
+            ))}
           </defs>
           <YAxisGrid ticks={yTicks} left={plotLeft} right={plotRight} toY={toY} format={formatY} />
           <XLabels labels={xLabels} visible={visible} toX={toX} y={plotBottom + 20} />
@@ -255,7 +348,7 @@ export function LineChart({
             return (
               <g key={s.id}>
                 {s.fill && first && last && <path d={`${path} L${last.x} ${plotBottom} L${first.x} ${plotBottom} Z`} fill={`url(#${uid}-fill-${s.id})`} />}
-                <path d={path} fill="none" stroke={s.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={s.dashed ? "5 4" : undefined} />
+                <path d={path} fill="none" stroke={s.gradient ? `url(#${uid}-stroke-${s.id})` : s.color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={s.dashed ? "5 4" : undefined} />
                 {points.map((p, i) => {
                   const isLast = i === points.length - 1;
                   const showDot = s.dots === "all" || (s.dots === "last" && isLast) || points.length === 1;
@@ -266,8 +359,26 @@ export function LineChart({
               </g>
             );
           })}
+          {hi !== null && (
+            <g pointerEvents="none">
+              <line x1={toX(hi)} x2={toX(hi)} y1={plotTop} y2={plotBottom} stroke="#cfc6ea" strokeDasharray="3 3" strokeWidth="1.2" />
+              {series.map((s) => (s.values[hi] === undefined ? null : <circle key={s.id} cx={toX(hi)} cy={toY(s.values[hi] as number)} r={5} fill={s.color} stroke="#fff" strokeWidth="2" />))}
+            </g>
+          )}
+          <rect
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+            fill="transparent"
+            style={{ touchAction: "pan-y" }}
+            onPointerDown={onPointer}
+            onPointerMove={onPointer}
+            onPointerLeave={(e) => hover.leave(e.pointerType)}
+          />
         </svg>
       )}
+      {hi !== null && width > 0 && <ChartTooltip x={toX(hi)} y={hoverTop} width={width} title={tooltipLabels?.[hi] ?? xLabels[hi] ?? ""} rows={hoverRows} />}
     </div>
   );
 }
@@ -285,6 +396,9 @@ export function BarChart({
   highlightGradient,
   referenceLines = [],
   formatY = String,
+  tooltipLabels,
+  formatValue,
+  valueName,
 }: {
   values: number[];
   labels: string[];
@@ -297,6 +411,12 @@ export function BarChart({
   highlightGradient?: Gradient;
   referenceLines?: ReferenceLine[];
   formatY?: (value: number) => string;
+  /** Full label per bar for the hover tooltip (defaults to labels). */
+  tooltipLabels?: string[];
+  /** Value text in the hover tooltip (defaults to the axis wording, else the number). */
+  formatValue?: ((value: number, index: number) => string) | undefined;
+  /** Small caption before the value in the tooltip, e.g. "Water". */
+  valueName?: string;
 }) {
   const uid = useId();
   const [ref, width] = useElementWidth<HTMLDivElement>();
@@ -311,11 +431,20 @@ export function BarChart({
   const toY = scaleLinear(yDomain, [plotBottom, plotTop]);
   const visible = visibleLabelIndexes(labels, plotRight - plotLeft - band);
   const radius = Math.min(6, barWidth / 2);
+  const hover = useHoverIndex();
+  const svgRef = useRef<SVGSVGElement>(null);
+  const hi = hover.index !== null && hover.index < values.length ? hover.index : null;
+  const hoverValue = hi === null ? undefined : values[hi];
+  const onPointer = (e: PointerEvent<SVGRectElement>) => {
+    const box = svgRef.current?.getBoundingClientRect();
+    if (!box || values.length === 0) return;
+    hover.show(Math.min(values.length - 1, Math.max(0, Math.floor((e.clientX - box.left - plotLeft) / (band || 1)))));
+  };
 
   return (
-    <div ref={ref} className="w-full">
+    <div ref={ref} className="relative w-full">
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={ariaLabel} className="block overflow-visible text-[10px] xl:text-[11px]">
+        <svg ref={svgRef} width={width} height={height} role="img" aria-label={ariaLabel} className="block overflow-visible text-[10px] xl:text-[11px]">
           <defs>
             <linearGradient id={`${uid}-base`} x1="0" x2="0" y1="0" y2="1">
               <stop offset="0%" stopColor={gradient[0]} />
@@ -330,6 +459,7 @@ export function BarChart({
           </defs>
           <YAxisGrid ticks={yTicks} left={plotLeft} right={plotRight} toY={toY} format={formatY} />
           <XLabels labels={labels} visible={visible} toX={toX} y={plotBottom + 20} />
+          {hi !== null && <rect x={plotLeft + band * hi} y={plotTop} width={band} height={plotBottom - plotTop} rx={8} fill="#8c70ec" opacity={0.09} pointerEvents="none" />}
           {values.map((value, i) => {
             const top = toY(value);
             const x = toX(i) - barWidth / 2;
@@ -345,7 +475,27 @@ export function BarChart({
             );
           })}
           <ReferenceLines lines={referenceLines} left={plotLeft} right={plotRight} toY={toY} />
+          <rect
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+            fill="transparent"
+            style={{ touchAction: "pan-y" }}
+            onPointerDown={onPointer}
+            onPointerMove={onPointer}
+            onPointerLeave={(e) => hover.leave(e.pointerType)}
+          />
         </svg>
+      )}
+      {hi !== null && hoverValue !== undefined && width > 0 && (
+        <ChartTooltip
+          x={toX(hi)}
+          y={toY(hoverValue)}
+          width={width}
+          title={tooltipLabels?.[hi] ?? labels[hi] ?? ""}
+          rows={[{ color: gradient[1], name: valueName, value: formatValue ? formatValue(hoverValue, hi) : tooltipText(hoverValue, formatY) }]}
+        />
       )}
     </div>
   );

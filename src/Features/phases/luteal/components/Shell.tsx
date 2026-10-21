@@ -3,12 +3,13 @@ import { calcBmi } from "../../../../lib/health";
 import type { CycleState } from "../../../../services/cycle";
 import type { OnboardingData } from "../../../../types";
 
-export type LutealTab = "overview" | "calendar" | "daily-log" | "insights" | "settings";
+export type LutealTab = "overview" | "calendar" | "daily-log" | "medication-history" | "insights" | "settings";
 
 const TABS: { id: LutealTab; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "calendar", label: "Calendar" },
   { id: "daily-log", label: "Daily Log" },
+  { id: "medication-history", label: "Medications" },
   { id: "insights", label: "Insights" },
   { id: "settings", label: "Settings" },
 ];
@@ -56,7 +57,7 @@ function CalendarArt({ className = "" }: { className?: string }) {
 }
 
 /** Pink patient card. Only shows what the user actually entered during onboarding. */
-function PatientCard({ data, state }: { data: OnboardingData; state: CycleState }) {
+function PatientCard({ data, state, compact = false }: { data: OnboardingData; state: CycleState; compact?: boolean }) {
   const name = data.name.trim() || "Your profile";
   const cycleLength = data.cycleLength ?? (state.cycleProfile.medianCycleLength ? Math.round(state.cycleProfile.medianCycleLength) : undefined);
   const bmi = calcBmi(data.height, data.weight);
@@ -70,7 +71,7 @@ function PatientCard({ data, state }: { data: OnboardingData; state: CycleState 
   return (
     <aside
       aria-label="Your profile"
-      className="relative isolate flex min-h-[clamp(138px,133px_+_1.37vw,160px)] w-full overflow-hidden rounded-[clamp(18px,1.6vw,26px)] bg-gradient-to-r from-[#EC4899] to-[#F472B6] p-[clamp(12px,0.95vw,18px)] text-white shadow-lu-glow sm:max-w-[380px]"
+      className={`relative isolate flex ${compact ? "min-h-[88px]" : "min-h-[clamp(138px,133px_+_1.37vw,160px)]"} w-full overflow-hidden rounded-[clamp(18px,1.6vw,26px)] bg-gradient-to-r from-[#EC4899] to-[#F472B6] p-[clamp(12px,0.95vw,18px)] text-white shadow-lu-glow sm:max-w-[380px]`}
     >
       <div className="relative z-10 flex min-w-0 max-w-[68%] flex-col justify-center gap-0.5">
         <h2 className="truncate text-lu-heading font-bold">{name}</h2>
@@ -91,15 +92,16 @@ interface LutealShellProps {
   state: CycleState;
   active: LutealTab;
   onNavigate: (tab: LutealTab) => void;
+  compact?: boolean;
 }
 
 /** "Cycle Tracker" header, patient card and Overview / Calendar / Daily Log / Insights / Settings tabs. */
-export function LutealShell({ data, state, active, onNavigate }: LutealShellProps) {
+export function LutealShell({ data, state, active, onNavigate, compact = false }: LutealShellProps) {
   return (
-    <div className="mb-lu-grid flex flex-col gap-[clamp(16px,1.5vw,28px)]">
+    <div className={`${compact ? "mb-3 gap-3" : "mb-lu-grid gap-[clamp(16px,1.5vw,28px)]"} flex flex-col`}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-[clamp(10px,1.1vw,18px)]">
-          <CalendarArt className="w-[clamp(56px,5vw,92px)] shrink-0" />
+          <CalendarArt className={`${compact ? "w-[clamp(44px,3.6vw,64px)]" : "w-[clamp(56px,5vw,92px)]"} shrink-0`} />
           <div className="min-w-0">
             <p className="flex items-center gap-1 text-lu-label font-bold uppercase tracking-[0.2em] text-lu-brand-strong">
               Period
@@ -111,7 +113,7 @@ export function LutealShell({ data, state, active, onNavigate }: LutealShellProp
             <p className="mt-1 text-lu-body text-lu-ink-muted">Understand your body, one day at a time.</p>
           </div>
         </div>
-        <PatientCard data={data} state={state} />
+        <PatientCard data={data} state={state} compact={compact} />
       </div>
 
       <nav aria-label="Cycle tracker" className="lu-no-scrollbar overflow-x-auto rounded-full bg-[#FDF0F6] p-[clamp(4px,0.35vw,6px)]">

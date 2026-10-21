@@ -11,6 +11,28 @@ export type FertilityGoal =
   | "";
 export type ReminderDays = 1 | 3 | 5;
 
+export type PreferenceKey =
+  | "shareWithProvider"
+  | "researchParticipation"
+  | "medicationReminders"
+  | "waterReminders"
+  | "wellnessSummary"
+  | "cycleRegularity";
+
+/** One medication from onboarding / Edit setup. Same shape the backend stores in logs_medication. */
+export interface MedicationEntry {
+  name: string;
+  /** "500 mg" — amount + unit in one string, same as the Daily Log medication */
+  dose: string;
+  /** Base frequency, optionally with " · After food" suffix (added by the Daily Log modal) */
+  frequency: string;
+  /** One "HH:MM" per dose of the day */
+  times: string[];
+  /** ISO dates. Empty startDate = today, empty endDate = ongoing */
+  startDate: string;
+  endDate: string;
+}
+
 export type TrackingKey =
   | "intercourse"
   | "cervicalMucus"
@@ -44,7 +66,7 @@ export interface OnboardingData {
   medicalConditions: string[];
   otherMedicalCondition: string;
   takingMedication: boolean | null;
-  medications: string[];
+  medications: MedicationEntry[];
   // Step 7
   symptoms: string[];
   customSymptom: string;
@@ -65,6 +87,8 @@ export interface OnboardingData {
   // Step 10
   fertilityGoal: FertilityGoal;
   fertilityTracking: FertilityTracking;
+  // Settings page toggles (privacy, reminders, cycle regularity)
+  preferences?: Partial<Record<PreferenceKey, boolean>>;
 }
 
 export type UpdateData = (patch: Partial<OnboardingData>) => void;

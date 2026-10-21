@@ -9,7 +9,7 @@ import {
   BIRTH_CONTROL_CATEGORIES,
   REGULARITY_OPTIONS,
 } from "../../../../constants";
-import { bmiCategory, validBmi, effectiveDuration, formatLongDate, pluralDays, trackingLabel } from "../../../../lib/health";
+import { bmiCategory, validBmi, effectiveDuration, formatLongDate, medicationLabel, pluralDays, trackingLabel } from "../../../../lib/health";
 import type { OnboardingData, StepId } from "../../../../types";
 import { resolvedList } from "../stepSymptoms/StepSymptoms";
 
@@ -36,7 +36,7 @@ export function StepReview({ data, onEdit }: StepReviewProps) {
   const conditions = data.medicalConditions.flatMap((c) =>
     c === "Other" ? [data.otherMedicalCondition.trim() || "Other"] : [c],
   );
-  const meds = data.takingMedication ? data.medications.map((m) => m.trim()).filter(Boolean) : [];
+  const meds = data.takingMedication ? data.medications.filter((m) => m.name.trim()).map(medicationLabel) : [];
 
   const goal = data.fertilityGoal;
   const cfg = goal ? GOAL_TRACKING[goal] : undefined;

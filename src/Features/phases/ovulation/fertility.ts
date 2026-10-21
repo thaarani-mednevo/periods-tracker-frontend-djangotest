@@ -1,4 +1,5 @@
 import { addDays, parseIso } from "../../../lib/isoDate";
+import { fmtDate } from "../../dashboard/phases";
 import type { DailyLog, LhTest, Libido, Mucus } from "../../../services/logs";
 import type { Journey } from "../../../services/settings";
 
@@ -66,46 +67,111 @@ export function fertilityLevel(s: WindowStatus): { label: string; percent: numbe
   }
 }
 
-/** Banner copy. The two fertility journeys use the same facts, only the framing differs. */
-export function statusCopy(s: WindowStatus, journey: Exclude<Journey, "cycle_tracking">) {
+/** Calendar level, softened when today's logged signs clearly disagree with a calendar "Peak". */
+export function fertilityLevelWithSignals(s: WindowStatus, log: DailyLog | null) {
+  const base = fertilityLevel(s);
+  if (s.kind !== "peak" || !log?.cervicalMucus || !log?.lhTest) return base;
+
+  const mucusLow = log.cervicalMucus === "Dry" || log.cervicalMucus === "Sticky";
+  const lhLow = log.lhTest === "Negative" || log.lhTest === "Low";
+
+  // Both logged signs say "not yet": the real ovulation is probably later than the calendar estimate.
+  if (mucusLow && lhLow) {
+    return { label: "Rising", percent: 50, note: "signs not confirming peak yet" };
+  }
+  return base;
+}
+
+/**
+ * Banner copy. The two fertility journeys use the same facts, only the framing differs.
+ * Every line names the real dates from the engine, never "these days".
+ */
+export function statusCopy(s: WindowStatus, journey: Exclude<Journey, "cycle_tracking">, w: FertileWindow) {
   const ttc = journey === "trying_to_conceive";
+  const win = `${fmtDate(w.start)} – ${fmtDate(w.end)}`;
+  const peak = `${fmtDate(w.bestStart)} – ${fmtDate(w.ovulation)}`;
+  const ov = fmtDate(w.ovulation);
   switch (s.kind) {
     case "before":
       return {
         title: ttc ? `Your fertile window opens in ${plural(s.days, "day")}` : "Lower chance of pregnancy for now (estimate)",
         text: ttc
-          ? "Keep logging cervical mucus and temperature so you can spot it early."
-          : `Your fertile window is estimated to open in ${plural(s.days, "day")}. Estimates can be off.`,
+          ? `Your fertile window is estimated for ${win}, and your best days to try are ${peak}. Keep logging cervical mucus and temperature so you can spot it early.`
+          : `Your fertile window is estimated for ${win}, opening in ${plural(s.days, "day")}. Your highest-chance days will be ${peak}.`,
         tone: "calm" as const,
       };
     case "open":
       return {
-        title: ttc ? "You are in your fertile window" : "Higher chance of pregnancy today",
+        title: ttc ? `You are in your fertile window (${win})` : `Higher chance of pregnancy today (${win})`,
         text:
           s.days < 0
             ? ttc
-              ? "Ovulation has likely just passed. Today is the last day of your estimated window."
-              : "Today is the last day of your estimated fertile window."
+              ? `Ovulation (${ov}) has likely just passed. Today is the last day of your estimated window.`
+              : `Today is the last day of your estimated fertile window. Ovulation was estimated for ${ov}.`
             : ttc
-              ? "Chances rise as ovulation gets closer."
-              : "You are inside your estimated fertile window.",
+              ? `Chances rise as ovulation gets closer. Your best days to try are ${peak}.`
+              : `Your highest-chance days are ${peak}, with ovulation estimated for ${ov}.`,
         tone: "alert" as const,
       };
     case "peak":
       return {
-        title: ttc ? "These are your best days to try" : "Highest chance of pregnancy right now",
+        title: ttc ? `Your best days to try: ${peak}` : `Highest chance of pregnancy: ${peak}`,
         text: ttc
-          ? "The two days before ovulation and ovulation day are usually the most fertile."
-          : "These are the days with the highest estimated chance of pregnancy.",
+          ? `Today is one of them. Ovulation is estimated for ${ov}, and the two days before it plus ovulation day are usually the most fertile.`
+          : `Today is one of your highest-chance days. Your fertile window runs ${win}, with ovulation estimated for ${ov}.`,
         tone: "alert" as const,
       };
     default:
       return {
         title: ttc ? "Your fertile window has passed for this cycle" : "Lower chance of pregnancy (estimate)",
-        text: `It closed ${plural(s.days, "day")} ago. ${ttc ? "Your next window starts after your next period." : "Estimates can be off, so keep using your usual protection."}`,
+        text: `Your window (${win}) closed ${plural(s.days, "day")} ago. ${ttc ? "Your next window starts after your next period." : "Estimates can be off, so keep using your usual protection."}`,
         tone: "calm" as const,
       };
   }
+}
+
+/**
+ * "How is my ovulation looking": a plain reading of what the user logged today (temperature, mucus, LH test).
+ * Nothing is guessed. It is an estimate from logged signs, not a medical result.
+ */
+export function ovulationHealth(
+  bbt: BbtAnalysis,
+  log: DailyLog | null,
+  status: WindowStatus | null,
+): { label: string; text: string; tone: "good" | "neutral" | "empty"; level: "strong" | "building" | "none" | "empty" } {
+  const mucus = log?.cervicalMucus ?? null;
+  const lh = log?.lhTest ?? null;
+  const logged = [bbt.latest != null, !!mucus, !!lh].filter(Boolean).length;
+  const fertile: string[] = [];
+  if (bbt.state === "rising") fertile.push("temperature rise");
+  if (mucus === "Watery" || mucus === "Egg white") fertile.push(`${mucus.toLowerCase()} mucus`);
+  if (lh === "High" || lh === "Peak") fertile.push(`${lh.toLowerCase()} LH test`);
+  const inWindow = status?.kind === "peak" || status?.kind === "open";
+
+  if (logged === 0)
+    return { label: "Not enough data yet", text: "Log temperature, cervical mucus or an LH test today and we will tell you how your ovulation signs look.", tone: "empty", level: "empty" };
+  if (fertile.length >= 2)
+    return {
+      label: "Ovulation signs look strong",
+      text: `Your ${fertile.join(" and ")} point to ovulation. A temperature that stays up for a few days after ovulation is what usually confirms it.`,
+      tone: "good",
+      level: "strong",
+    };
+  if (fertile.length === 1)
+    return {
+      label: "Ovulation signs are building",
+      text: `Your ${fertile[0]} looks fertile. Log the other signs too, so the picture gets clearer.`,
+      tone: "good",
+      level: "building",
+    };
+  return {
+    label: "No clear ovulation signs yet",
+    text: inWindow
+      ? "Your logged signs don't show a fertile pattern yet. Keep logging over the next few days, it can build up gradually."
+      : "Your logged signs don't show a fertile pattern today, which is normal outside your fertile days.",
+    tone: "neutral",
+    level: "none",
+  };
 }
 
 // ---------------------------------------------------------------- BBT

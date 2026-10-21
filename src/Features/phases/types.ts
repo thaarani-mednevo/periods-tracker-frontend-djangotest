@@ -8,5 +8,6 @@ export interface PhaseViewProps {
   /** Optional: only phases that render their own Ava / log-period UI use these. */
   onAskAva?: () => void;
   onOpenDailyLog?: () => void;
+  onOpenMedicationHistory?: () => void;
   onChanged?: () => void;
 }
